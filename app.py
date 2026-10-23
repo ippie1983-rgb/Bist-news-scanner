@@ -1,7 +1,10 @@
+import os
+import json
 import streamlit as st
 import yfinance as yf
-import google.generativeai as genai
 import pandas as pd
+import urllib.request
+import urllib.parse
 from datetime import datetime
 
 # Pagina configuratie
@@ -23,20 +26,19 @@ st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 5-Agent Nieuws- 
 st.markdown("Een krachtige nieuws- en analistenscanner voor **Borsa Istanbul (BIST)**, **Goud** en **Zilver**, aangedreven door 5 gespecialiseerde AI-agents die elkaar controleren en alles vertalen in begrijpelijke Jip-en-Janneketaal.")
 
 # --- ZIJBALK: API KEY & CONFIGURATIE ---
-st.sidebar.header("⚙️ Instellingen & API Key")
+st.sidebar.header("⚙️ Instellingen & Sleutel")
 
 api_key_input = st.sidebar.text_input(
-    "Google Gemini API Key",
+    "Google API Sleutel of Token",
     type="password",
     value=st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets else "",
-    help="Vul hier je Google Gemini API Key in om de AI-agents te activeren."
+    help="Vul hier je Google Gemini API Key of Access Token in."
 )
 
 if not api_key_input:
-    st.sidebar.error("⚠️ Geen API Key ingevoerd! Vul je Gemini API Key hierboven in om de agents te laten werken.")
+    st.sidebar.error("⚠️ Geen sleutel ingevoerd! Vul je sleutel hierboven in om de agents te laten werken.")
 else:
-    genai.configure(api_key=api_key_input)
-    st.sidebar.success("✅ API Key ingesteld!")
+    st.sidebar.success("✅ Sleutel ingesteld!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Aandelen Selectie (Agent 1)")
@@ -75,22 +77,43 @@ for i, (name, symbol) in enumerate(ticker_symbols.items()):
 
 st.markdown("---")
 
-# Hulpfunctie om Gemini aan te roepen (foutvrij)
+# Slimme hulpfunctie die zowel AIza-sleutels als AQ-tokens automatisch begrijpt
 def run_gemini_agent(prompt_text, system_instruction=""):
     if not api_key_input:
-        return "❌ Fout: Geen Gemini API Key ingevoerd in de sidebar."
+        return "❌ Fout: Geen sleutel ingevoerd in de sidebar."
     
-    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+    cleaned_key = api_key_input.strip()
+    models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
     last_error = None
     
     for model_name in models_to_try:
         try:
-            model = genai.GenerativeModel(
-                model_name=model_name,
-                system_instruction=system_instruction
+            if cleaned_key.startswith("AIza"):
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={urllib.parse.quote(cleaned_key)}"
+                headers = {"Content-Type": "application/json"}
+            else:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {cleaned_key}"
+                }
+            
+            payload = {
+                "contents": [{"parts": [{"text": prompt_text}]}],
+                "generationConfig": {"temperature": 0.2}
+            }
+            if system_instruction:
+                payload["system_instruction"] = {"parts": [{"text": system_instruction}]}
+            
+            req = urllib.request.Request(
+                url, 
+                data=json.dumps(payload).encode("utf-8"), 
+                headers=headers, 
+                method="POST"
             )
-            response = model.generate_content(prompt_text)
-            return response.text
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                res_json = json.loads(resp.read().decode("utf-8"))
+                return res_json["candidates"][0]["content"]["parts"][0]["text"]
         except Exception as e:
             last_error = str(e)
             continue
@@ -103,7 +126,7 @@ st.markdown("Druk op de knop hieronder om alle 5 de agents achter elkaar te late
 
 if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
     if not api_key_input:
-        st.error("Voer eerst je Gemini API Key in via de zijbalk (sidebar).")
+        st.error("Voer eerst je sleutel in via de zijbalk (sidebar).")
     else:
         tickers_clean = [t.split(" ")[0] for t in selected_tickers]
         
@@ -209,4 +232,4 @@ if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
             st.markdown(agent5_output)
 
 else:
-    st.info("👈 Voer je Gemini API Key in de zijbalk in, kies je favoriete aandelen en klik op de knop hierboven om de scanner te starten!")
+    st.info("👈 Voer je sleutel in de zijbalk in, kies je favoriete aandelen en klik op de knop hierboven om de scanner te starten!")
