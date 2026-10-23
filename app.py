@@ -22,23 +22,28 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 5-Agent Nieuws- en Analistenscanner (In Simpele Taal)</p>', unsafe_allow_html=True)
-st.markdown("Een krachtige nieuws- en analistenscanner voor **Borsa Istanbul (BIST)**, **Goud** en **Zilver**, aangedreven door 5 gespecialiseerde AI-agents die elkaar controleren en alles vertalen in begrijpelijke Jip-en-Janneketaal.")
+st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 5-Agent Nieuws- en Analistenscanner (Met Automatische Token-Vernieuwer)</p>', unsafe_allow_html=True)
+st.markdown("Een krachtige nieuws- en analistenscanner voor **Borsa Istanbul (BIST)**, **Goud** en **Zilver**, aangedreven door 5 gespecialiseerde AI-agents.")
 
 # --- ZIJBALK: API KEY & CONFIGURATIE ---
-st.sidebar.header("⚙️ Instellingen & Sleutel")
+st.sidebar.header("⚙️ Instellingen & Authenticatie")
 
-api_key_input = st.sidebar.text_input(
-    "Google API Sleutel (AIza... of AQ...)",
-    type="password",
-    value=st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets else "",
-    help="Vul hier je Google Gemini API Sleutel in."
-)
+# We controleren of er geheimen zijn opgeslagen, anders vullen we het in via de sidebar
+default_refresh = st.secrets.get("GOOGLE_REFRESH_TOKEN", "") if hasattr(st, "secrets") and "GOOGLE_REFRESH_TOKEN" in st.secrets else ""
+default_client_id = st.secrets.get("GOOGLE_CLIENT_ID", "") if hasattr(st, "secrets") and "GOOGLE_CLIENT_ID" in st.secrets else ""
+default_client_secret = st.secrets.get("GOOGLE_CLIENT_SECRET", "") if hasattr(st, "secrets") and "GOOGLE_CLIENT_SECRET" in st.secrets else ""
 
-if not api_key_input:
-    st.sidebar.error("⚠️ Geen sleutel ingevoerd! Vul je sleutel hierboven in om de agents te laten werken.")
+refresh_token_input = st.sidebar.text_input("Google Refresh Token (1//...)", type="password", value=default_refresh)
+client_id_input = st.sidebar.text_input("Google Client ID", type="password", value=default_client_id)
+client_secret_input = st.sidebar.text_input("Google Client Secret", type="password", value=default_client_secret)
+
+# Fallback optie voor een direct token of api key als iemand dat liever plakt
+direct_key_input = st.sidebar.text_input("Of Directe API Key / AQ Token", type="password", value="", help="Optioneel: direct invullen als je geen refresh token gebruikt.")
+
+if not (refresh_token_input or direct_key_input):
+    st.sidebar.error("⚠️ Vul je Refresh Token of directe sleutel in om de agents te laten werken.")
 else:
-    st.sidebar.success("✅ Sleutel ingesteld!")
+    st.sidebar.success("✅ Authenticatie ingesteld!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Aandelen Selectie (Agent 1)")
@@ -77,12 +82,38 @@ for i, (name, symbol) in enumerate(ticker_symbols.items()):
 
 st.markdown("---")
 
-# Robuuste hulpfunctie die zowel AIza... als AQ... sleutels feilloos ondersteunt via de x-goog-api-key header
+# Functie om automatisch een vers AQ-token op te halen via het Refresh Token
+@st.cache_data(ttl=300, show_spinner=False)
+def get_fresh_access_token(client_id, client_secret, refresh_token):
+    try:
+        url = "https://oauth2.googleapis.com/token"
+        data = urllib.parse.urlencode({
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token"
+        }).encode("utf-8")
+        
+        req = urllib.request.Request(url, data=data, method="POST")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            res_json = json.loads(resp.read().decode("utf-8"))
+            return res_json.get("access_token")
+    except Exception as e:
+        return None
+
+# Slimme hulpfunctie die automatisch tokens ververst en de AI agents aanroept
 def run_gemini_agent(prompt_text, system_instruction=""):
-    if not api_key_input:
-        return "❌ Fout: Geen sleutel ingevoerd in de sidebar."
+    active_token = direct_key_input.strip()
     
-    cleaned_key = api_key_input.strip()
+    # Als er geen directe sleutel is, maar wel OAuth gegevens, halen we automatisch een verse op!
+    if not active_token and refresh_token_input and client_id_input and client_secret_input:
+        active_token = get_fresh_access_token(client_id_input.strip(), client_secret_input.strip(), refresh_token_input.strip())
+    
+    if not active_token:
+        return "❌ Fout: Geen geldige sleutel of werkende OAuth-gegevens beschikbaar."
+    
     models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
     last_error = None
     
@@ -91,8 +122,13 @@ def run_gemini_agent(prompt_text, system_instruction=""):
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
             headers = {
                 "Content-Type": "application/json",
-                "x-goog-api-key": cleaned_key
+                "x-goog-api-key": active_token if not active_token.startswith("AQ") else active_token,
             }
+            if active_token.startswith("AQ") or len(active_token) > 50:
+                # Als het een OAuth token is, gebruiken we de Authorization header
+                headers["Authorization"] = f"Bearer {active_token}"
+                # Verwijder x-goog-api-key om conflicten te vermijden
+                headers.pop("x-goog-api-key", None)
             
             payload = {
                 "contents": [{"parts": [{"text": prompt_text}]}],
@@ -121,8 +157,8 @@ st.markdown("### 🤖 Start de 5-Agent Intelligence Ketting")
 st.markdown("Druk op de knop hieronder om alle 5 de agents achter elkaar te laten samenwerken: van nieuwsverzameling tot eindcontrole.")
 
 if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
-    if not api_key_input:
-        st.error("Voer eerst je sleutel in via de zijbalk (sidebar).")
+    if not (refresh_token_input or direct_key_input):
+        st.error("Voer eerst je gegevens in via de zijbalk (sidebar).")
     else:
         tickers_clean = [t.split(" ")[0] for t in selected_tickers]
         
@@ -228,4 +264,4 @@ if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
             st.markdown(agent5_output)
 
 else:
-    st.info("👈 Voer je sleutel in de zijbalk in, kies je favoriete aandelen en klik op de knop hierboven om de scanner te starten!")
+    st.info("👈 Voer je gegevens in de zijbalk in, kies je favoriete aandelen en klik op de knop hierboven om de scanner te starten!")
