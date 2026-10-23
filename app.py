@@ -29,10 +29,10 @@ st.markdown("Een krachtige nieuws- en analistenscanner voor **Borsa Istanbul (BI
 st.sidebar.header("⚙️ Instellingen & Sleutel")
 
 api_key_input = st.sidebar.text_input(
-    "Google API Sleutel of Token",
+    "Google API Sleutel (AIza... of AQ...)",
     type="password",
     value=st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets else "",
-    help="Vul hier je Google Gemini API Key of Access Token in."
+    help="Vul hier je Google Gemini API Sleutel in."
 )
 
 if not api_key_input:
@@ -77,7 +77,7 @@ for i, (name, symbol) in enumerate(ticker_symbols.items()):
 
 st.markdown("---")
 
-# Slimme hulpfunctie die zowel AIza-sleutels als AQ-tokens automatisch begrijpt
+# Robuuste hulpfunctie die zowel AIza... als AQ... sleutels feilloos ondersteunt via de x-goog-api-key header
 def run_gemini_agent(prompt_text, system_instruction=""):
     if not api_key_input:
         return "❌ Fout: Geen sleutel ingevoerd in de sidebar."
@@ -88,15 +88,11 @@ def run_gemini_agent(prompt_text, system_instruction=""):
     
     for model_name in models_to_try:
         try:
-            if cleaned_key.startswith("AIza"):
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={urllib.parse.quote(cleaned_key)}"
-                headers = {"Content-Type": "application/json"}
-            else:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {cleaned_key}"
-                }
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": cleaned_key
+            }
             
             payload = {
                 "contents": [{"parts": [{"text": prompt_text}]}],
