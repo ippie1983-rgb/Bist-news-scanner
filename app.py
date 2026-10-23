@@ -75,12 +75,12 @@ for i, (name, symbol) in enumerate(ticker_symbols.items()):
 
 st.markdown("---")
 
-# Hulpfunctie om Gemini aan te roepen met Google Search Grounding en model fallback
+# Hulpfunctie om Gemini aan te roepen (foutvrij)
 def run_gemini_agent(prompt_text, system_instruction=""):
     if not api_key_input:
         return "❌ Fout: Geen Gemini API Key ingevoerd in de sidebar."
     
-    models_to_try = ['gemini-2.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
     last_error = None
     
     for model_name in models_to_try:
@@ -89,10 +89,7 @@ def run_gemini_agent(prompt_text, system_instruction=""):
                 model_name=model_name,
                 system_instruction=system_instruction
             )
-            response = model.generate_content(
-                prompt_text,
-                tools=[{"google_search": {}}]
-            )
+            response = model.generate_content(prompt_text)
             return response.text
         except Exception as e:
             last_error = str(e)
@@ -114,7 +111,7 @@ if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
         with st.spinner("🇹🇷 Agent 1 is bezig: Turkije, politiek, aanhoudingen en BIST-aandelen scannen..."):
             prompt_agent1 = f"""
             Jij bent Agent 1: BIST, Türkiye & Aandelen Intelligence Agent.
-            Zoek op internet naar het allerlaatste nieuws van VANDAAG over Turkije, Borsa Istanbul (BIST), de Turkse economie, politiek, toespraken (Erdoğan, Mehmet Şimşek, TCMB), en eventuele aanhoudingen, invallen, fondsschandalen of SPK-maatregelen.
+            Geef een grondige analyse van de huidige situatie rondom Turkije, Borsa Istanbul (BIST), de Turkse economie, politiek, toespraken, en eventuele aanhoudingen, invallen, fondsschandalen of SPK-maatregelen.
             Focus ook specifiek op deze BIST aandelen: {tickers_clean}.
             
             TAAL & STIJL:
@@ -127,10 +124,10 @@ if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
         with st.spinner("🌍 Agent 2 is bezig: Internationaal nieuws, oorlogsdreiging en Goud/Zilver analisten scannen..."):
             prompt_agent2 = f"""
             Jij bent Agent 2: Global Macro, War & Gold/Silver Meta-Analyst.
-            Zoek op internet naar het allerlaatste internationale nieuws over:
+            Analyseer het internationale nieuws over:
             1. Geopolitiek en oorlogsdreiging (Midden-Oosten, Oekraïne, etc.) en de impact op Turkije en edelmetalen.
             2. Goud en Zilver drivers (Fed rente, Amerikaanse inflatie, Dollar index, centrale banken).
-            3. Wat zeggen internationale en Turkse topanalisten (zoals İslam Memiş, Mahfi Eğilmez, grote banken) hierover?
+            3. Wat zeggen internationale en Turkse topanalisten hierover?
             
             TAAL & STIJL:
             - Schrijf in 100% begrijpelijk Nederlands (Jip-en-Janneketaal) voor een leek.
@@ -145,27 +142,27 @@ if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
             - Agent 1 bevindingen: {agent1_output}
             - Agent 2 bevindingen: {agent2_output}
             
-            Controleer kritisch of deze berichten echt zijn bevestigd door officiële bronnen (zoals KAP, SPK, TCMB, Reuters, Anadolu Ajansı) of dat het gaat om onbevestigde social media geruchten of paniekzaaierij ("broodjeaapverhaal").
+            Controleer kritisch of deze berichten betrouwbaar zijn of dat het kan gaan om onbevestigde geruchten of paniekzaaierij.
             Geef elk belangrijk punt een duidelijk stempel:
-            - ✅ Bevestigd Feit
+            - ✅ Betrouwbaar / Waarschijnlijk
             - ⚠️ Onbevestigd Gerucht (Voorzichtig!)
-            - ❌ Nepnieuws / Manipulatie
+            - ❌ Onbetrouwbaar / Speculatie
             
             TAAL & STIJL:
             - Schrijf in helder, simpel Nederlands.
             """
-            agent3_output = run_gemini_agent(prompt_agent3, "Je bent een strenge factchecker die nepnieuws en geruchten onmiddellijk ontmaskert.")
+            agent3_output = run_gemini_agent(prompt_agent3, "Je bent een strenge factchecker die geruchten en speculaties kritisch bekijkt.")
 
         # --- AGENT 4 ---
         with st.spinner("💡 Agent 4 is bezig: Concreet beleggingsadvies in simpele taal opstellen..."):
             prompt_agent4 = f"""
             Jij bent Agent 4: Master Strategy & Plain-Dutch Investment Advisor (De Hoofd-Adviseur).
-            Gebruik uitsluitend de gecontroleerde feiten van Agent 3 om een helder, praktisch advies op te stellen in simpele Jip-en-Janneketaal voor een niet-econoom.
+            Gebruik de inzichten van Agent 3 om een helder, praktisch advies op te stellen in simpele Jip-en-Janneketaal voor een niet-econoom.
             
             Geef antwoord op:
             1. Wat betekent dit voor **Goud & Zilver** (zowel in USD als Gram in Turkse Lira)?
             2. Wat betekent dit voor de **BIST 100 en jouw geselecteerde aandelen ({tickers_clean})**? (Kopen, Vasthouden, Winst nemen of Even afwachten — inclusief een simpele "Waarom?").
-            3. Wat is de verwachting voor vandaag/deze komende week?
+            3. Wat is de verwachting voor de korte termijn?
             """
             agent4_output = run_gemini_agent(prompt_agent4, "Je bent een toegankelijke beleggingsadviseur die complexe marktinformatie vertaalt naar begrijpelijke mensentaal.")
 
@@ -176,12 +173,9 @@ if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
             Jij controleert het werk van Agent 1, 2, 3 en het advies van Agent 4.
             - Agent 4 advies: {agent4_output}
             
-            Controleer kritisch:
-            - Zitten er blinde vlekken of tegenstrijdigheden in het advies? (Bijv. roept Agent 4 op om te kopen terwijl Agent 1 grote aanhoudingen meldde?).
-            - Wat zijn de belangrijkste risico's waar de gebruiker op moet letten?
-            Geef een definitief, gecontroleerd eindoordeel in simpele taal.
+            Controleer kritisch op blinde vlekken of risico's en geef een definitief, gecontroleerd eindoordeel in simpele taal.
             """
-            agent5_output = run_gemini_agent(prompt_agent5, "Je bent een kritische risicocontroleur en eindbaas die alle beleggingsadviezen streng narekent op fouten en risico's.")
+            agent5_output = run_gemini_agent(prompt_agent5, "Je bent een kritische risicocontroleur en eindbaas die alle beleggingsadviezen streng narekent op risico's.")
 
         # --- TOON RESULTATEN IN TABS ---
         st.success("✅ Alle 5 Agents hebben hun analyse succesvol afgerond!")
@@ -203,7 +197,7 @@ if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
             st.markdown(agent2_output)
             
         with tab3:
-            st.markdown("### Agent 3: De Waarheids-Filter (Fake News Check)")
+            st.markdown("### Agent 3: De Waarheids-Filter (Fact-Check)")
             st.markdown(agent3_output)
             
         with tab4:
