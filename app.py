@@ -5,7 +5,6 @@ import yfinance as yf
 import pandas as pd
 import urllib.request
 import urllib.parse
-from datetime import datetime
 
 # Pagina configuratie
 st.set_page_config(
@@ -25,20 +24,23 @@ st.markdown("""
 st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 5-Agent Nieuws- en Analistenscanner</p>', unsafe_allow_html=True)
 st.markdown("Een krachtige nieuws- en analistenscanner voor **Borsa Istanbul (BIST)**, **Goud** en **Zilver**, aangedreven door 5 gespecialiseerde AI-agents.")
 
-# --- ZIJBALK: AQ TOKEN INVOER ---
-st.sidebar.header("⚙️ Authenticatie")
+# --- ZIJBALK: SESSIE-GEHEUGEN VOOR DE AQ TOKEN ---
+if "aq_token" not in st.session_state:
+    st.session_state.aq_token = ""
 
-api_key_input = st.sidebar.text_input(
-    "Plak hier je AQ Token",
+st.sidebar.header("⚙️ Systeem & AI Instellingen")
+
+st.session_state.aq_token = st.sidebar.text_input(
+    "Gemini API Key / AQ Token:",
     type="password",
-    value="",
-    help="Plak hier je AQ... inlogtoken."
+    value=st.session_state.aq_token,
+    help="Wordt automatisch vastgehouden in het geheugen van de app."
 )
 
-if not api_key_input:
-    st.sidebar.error("⚠️ Voer je AQ Token in om de agents te laten werken.")
+if not st.session_state.aq_token:
+    st.sidebar.error("⚠️ Vul hier je AQ-code in om te starten.")
 else:
-    st.sidebar.success("✅ AQ Token ingevoerd!")
+    st.sidebar.success("✅ Token succesvol geladen in geheugen!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Aandelen Selectie (Agent 1)")
@@ -77,22 +79,18 @@ for i, (name, symbol) in enumerate(ticker_symbols.items()):
 
 st.markdown("---")
 
-# Hulpfunctie die de AQ token via de juiste Authorization Bearer header meestuurt
+# Hulpfunctie met de beproefde URL parameter aanroep
 def run_gemini_agent(prompt_text, system_instruction=""):
-    if not api_key_input:
-        return "❌ Fout: Geen AQ Token ingevoerd in de zijbalk."
+    token = st.session_state.aq_token.strip()
+    if not token:
+        return "❌ Fout: Geen token aanwezig in de sessie."
     
-    cleaned_key = api_key_input.strip()
     models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
     last_error = None
     
     for model_name in models_to_try:
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {cleaned_key}"
-            }
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={urllib.parse.quote(token)}"
             
             payload = {
                 "contents": [{"parts": [{"text": prompt_text}]}],
@@ -104,25 +102,25 @@ def run_gemini_agent(prompt_text, system_instruction=""):
             req = urllib.request.Request(
                 url, 
                 data=json.dumps(payload).encode("utf-8"), 
-                headers=headers, 
+                headers={"Content-Type": "application/json"}, 
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=25) as resp:
                 res_json = json.loads(resp.read().decode("utf-8"))
                 return res_json["candidates"][0]["content"]["parts"][0]["text"]
         except Exception as e:
             last_error = str(e)
             continue
             
-    return f"❌ Fout bij aanroepen van AI Agents (controleer of je AQ-token is verlopen): {last_error}"
+    return f"❌ Fout bij aanroepen van AI Agents: {last_error}"
 
 # --- HOOFDPROGRAMMA: DE 5-AGENT KETTING ---
 st.markdown("### 🤖 Start de 5-Agent Intelligence Ketting")
 st.markdown("Druk op de knop hieronder om alle 5 de agents achter elkaar te laten samenwerken: van nieuwsverzameling tot eindcontrole.")
 
 if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
-    if not api_key_input:
-        st.error("Voer eerst je AQ Token in via de zijbalk.")
+    if not st.session_state.aq_token:
+        st.error("Voer eerst je token in via de zijbalk.")
     else:
         tickers_clean = [t.split(" ")[0] for t in selected_tickers]
         
@@ -161,71 +159,3 @@ if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
             - Agent 1 bevindingen: {agent1_output}
             - Agent 2 bevindingen: {agent2_output}
             
-            Controleer kritisch of deze berichten betrouwbaar zijn of dat het kan gaan om onbevestigde geruchten of paniekzaaierij.
-            Geef elk belangrijk punt een duidelijk stempel:
-            - ✅ Betrouwbaar / Waarschijnlijk
-            - ⚠️ Onbevestigd Gerucht (Voorzichtig!)
-            - ❌ Onbetrouwbaar / Speculatie
-            
-            TAAL & STIJL:
-            - Schrijf in helder, simpel Nederlands.
-            """
-            agent3_output = run_gemini_agent(prompt_agent3, "Je bent een strenge factchecker die geruchten en speculaties kritisch bekijkt.")
-
-        # --- AGENT 4 ---
-        with st.spinner("💡 Agent 4 is bezig: Concreet beleggingsadvies in simpele taal opstellen..."):
-            prompt_agent4 = f"""
-            Jij bent Agent 4: Master Strategy & Plain-Dutch Investment Advisor (De Hoofd-Adviseur).
-            Gebruik de inzichten van Agent 3 om een helder, praktisch advies op te stellen in simpele Jip-en-Janneketaal voor een niet-econoom.
-            
-            Geef antwoord op:
-            1. Wat betekent dit voor **Goud & Zilver** (zowel in USD als Gram in Turkse Lira)?
-            2. Wat betekent dit voor de **BIST 100 en jouw geselecteerde aandelen ({tickers_clean})**? (Kopen, Vasthouden, Winst nemen of Even afwachten — inclusief een simpele "Waarom?").
-            3. Wat is de verwachting voor de korte termijn?
-            """
-            agent4_output = run_gemini_agent(prompt_agent4, "Je bent een toegankelijke beleggingsadviseur die complexe marktinformatie vertaalt naar begrijpelijke mensentaal.")
-
-        # --- AGENT 5 ---
-        with st.spinner("⚖️ Agent 5 is bezig: Eindcontrole en risico-audit uitvoeren (Devil's Advocate)..."):
-            prompt_agent5 = f"""
-            Jij bent Agent 5: Chief Auditor & Strategy Controller (De Eind-Controleur / Devil's Advocate).
-            Jij controleert het werk van Agent 1, 2, 3 en het advies van Agent 4.
-            - Agent 4 advies: {agent4_output}
-            
-            Controleer kritisch op blinde vlekken of risico's en geef een definitief, gecontroleerd eindoordeel in simpele taal.
-            """
-            agent5_output = run_gemini_agent(prompt_agent5, "Je bent een kritische risicocontroleur en eindbaas die alle beleggingsadviezen streng narekent op risico's.")
-
-        # --- TOON RESULTATEN IN TABS ---
-        st.success("✅ Alle 5 Agents hebben hun analyse succesvol afgerond!")
-        
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "🇹🇷 Agent 1: BIST & Lokaal", 
-            "🌍 Agent 2: Globaal & Oorlog", 
-            "🕵️‍♂️ Agent 3: Fact-Check", 
-            "💡 Agent 4: Advies", 
-            "⚖️ Agent 5: Eindcontrole"
-        ])
-        
-        with tab1:
-            st.markdown("### Agent 1: Turkije, Politiek & Aandelen Nieuws")
-            st.markdown(agent1_output)
-            
-        with tab2:
-            st.markdown("### Agent 2: Wereldnieuws, Oorlog & Edelmetalen")
-            st.markdown(agent2_output)
-            
-        with tab3:
-            st.markdown("### Agent 3: De Waarheids-Filter (Fact-Check)")
-            st.markdown(agent3_output)
-            
-        with tab4:
-            st.markdown("### Agent 4: Concreet Beleggingsadvies (Jip-en-Janneketaal)")
-            st.markdown(agent4_output)
-            
-        with tab5:
-            st.markdown("### Agent 5: Eindcontrole & Risico-Audit")
-            st.markdown(agent5_output)
-
-else:
-    st.info("👈 Voer je AQ Token in de zijbalk in en klik op de knop hierboven om de scanner te starten!")
