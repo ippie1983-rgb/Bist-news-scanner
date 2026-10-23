@@ -4,7 +4,6 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import urllib.request
-import urllib.parse
 
 # Pagina configuratie
 st.set_page_config(
@@ -13,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Stijlvolle opmaak & mobiel-vriendelijke correcties voor metrische getallen
+# Stijlvolle opmaak
 st.markdown("""
 <style>
     .main-header { font-size: 26px; font-weight: bold; color: #1E3A8A; }
@@ -51,7 +50,7 @@ selected_tickers = st.sidebar.multiselect(
     default=["THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)"]
 )
 
-# --- LIVE MARKT TICKER BAR (Verdeeld over 2 rijen voor perfecte leesbaarheid) ---
+# --- LIVE MARKT TICKER BAR (Verdeeld over 2 rijen) ---
 st.markdown("### 📊 Live Marktoverzicht")
 ticker_symbols = {
     "BIST 100": "XU100.IS",
@@ -88,7 +87,7 @@ render_tickers(row2_items)
 
 st.markdown("---")
 
-# Hulpfunctie met de beproefde URL parameter aanroep
+# Hulpfunctie met de juiste Bearer-header voor OAuth AQ-tokens
 def run_gemini_agent(prompt_text, system_instruction=""):
     token = st.session_state.aq_token.strip()
     if not token:
@@ -99,7 +98,11 @@ def run_gemini_agent(prompt_text, system_instruction=""):
     
     for model_name in models_to_try:
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={urllib.parse.quote(token)}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}"
+            }
             
             payload = {
                 "contents": [{"parts": [{"text": prompt_text}]}],
@@ -111,7 +114,7 @@ def run_gemini_agent(prompt_text, system_instruction=""):
             req = urllib.request.Request(
                 url, 
                 data=json.dumps(payload).encode("utf-8"), 
-                headers={"Content-Type": "application/json"}, 
+                headers=headers, 
                 method="POST"
             )
             with urllib.request.urlopen(req, timeout=25) as resp:
@@ -121,7 +124,7 @@ def run_gemini_agent(prompt_text, system_instruction=""):
             last_error = str(e)
             continue
             
-    return f"❌ Fout bij aanroepen van AI Agents: {last_error}"
+    return f"❌ Fout bij aanroepen van AI Agents (Controleer of je AQ-token nog geldig is / niet is verlopen): {last_error}"
 
 # --- HOOFDPROGRAMMA: DE 5-AGENT KETTING ---
 st.markdown("### 🤖 Start de 5-Agent Intelligence Ketting")
