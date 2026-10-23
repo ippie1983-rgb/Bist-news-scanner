@@ -1,7 +1,10 @@
+import os
+import json
 import streamlit as st
 import yfinance as yf
-import google.generativeai as genai
 import pandas as pd
+import urllib.request
+import urllib.parse
 from datetime import datetime
 
 # Pagina configuratie
@@ -22,25 +25,20 @@ st.markdown("""
 st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 5-Agent Nieuws- en Analistenscanner</p>', unsafe_allow_html=True)
 st.markdown("Een krachtige nieuws- en analistenscanner voor **Borsa Istanbul (BIST)**, **Goud** en **Zilver**, aangedreven door 5 gespecialiseerde AI-agents.")
 
-# --- ZIJBALK: API SLEUTEL & CONFIGURATIE ---
-st.sidebar.header("⚙️ Instellingen & API Key")
+# --- ZIJBALK: AQ TOKEN INVOER ---
+st.sidebar.header("⚙️ Authenticatie")
 
-# Veld voor een echte AIza... sleutel
 api_key_input = st.sidebar.text_input(
-    "Google Gemini API Key (AIza...)",
+    "Plak hier je AQ Token",
     type="password",
     value="",
-    help="Plak hier je permanente API-sleutel die begint met AIza..."
+    help="Plak hier je AQ... inlogtoken."
 )
 
 if not api_key_input:
-    st.sidebar.error("⚠️ Vul je permanente API-sleutel (AIza...) hierboven in om de agents te laten werken.")
+    st.sidebar.error("⚠️ Voer je AQ Token in om de agents te laten werken.")
 else:
-    try:
-        genai.configure(api_key=api_key_input)
-        st.sidebar.success("✅ API-sleutel succesvol ingesteld!")
-    except Exception as e:
-        st.sidebar.error(f"Fout bij instellen sleutel: {e}")
+    st.sidebar.success("✅ AQ Token ingevoerd!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Aandelen Selectie (Agent 1)")
@@ -79,27 +77,44 @@ for i, (name, symbol) in enumerate(ticker_symbols.items()):
 
 st.markdown("---")
 
-# Officiële, stabiele hulpfunctie via de Google SDK
+# Hulpfunctie die de AQ token via de juiste Authorization Bearer header meestuurt
 def run_gemini_agent(prompt_text, system_instruction=""):
     if not api_key_input:
-        return "❌ Fout: Geen API Key ingevoerd in de zijbalk."
+        return "❌ Fout: Geen AQ Token ingevoerd in de zijbalk."
     
+    cleaned_key = api_key_input.strip()
     models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
     last_error = None
     
     for model_name in models_to_try:
         try:
-            model = genai.GenerativeModel(
-                model_name=model_name,
-                system_instruction=system_instruction
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {cleaned_key}"
+            }
+            
+            payload = {
+                "contents": [{"parts": [{"text": prompt_text}]}],
+                "generationConfig": {"temperature": 0.2}
+            }
+            if system_instruction:
+                payload["system_instruction"] = {"parts": [{"text": system_instruction}]}
+            
+            req = urllib.request.Request(
+                url, 
+                data=json.dumps(payload).encode("utf-8"), 
+                headers=headers, 
+                method="POST"
             )
-            response = model.generate_content(prompt_text)
-            return response.text
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                res_json = json.loads(resp.read().decode("utf-8"))
+                return res_json["candidates"][0]["content"]["parts"][0]["text"]
         except Exception as e:
             last_error = str(e)
             continue
             
-    return f"❌ Fout bij aanroepen van AI Agents: {last_error}"
+    return f"❌ Fout bij aanroepen van AI Agents (controleer of je AQ-token is verlopen): {last_error}"
 
 # --- HOOFDPROGRAMMA: DE 5-AGENT KETTING ---
 st.markdown("### 🤖 Start de 5-Agent Intelligence Ketting")
@@ -107,7 +122,7 @@ st.markdown("Druk op de knop hieronder om alle 5 de agents achter elkaar te late
 
 if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
     if not api_key_input:
-        st.error("Voer eerst je permanente API Key in via de zijbalk.")
+        st.error("Voer eerst je AQ Token in via de zijbalk.")
     else:
         tickers_clean = [t.split(" ")[0] for t in selected_tickers]
         
@@ -213,4 +228,4 @@ if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
             st.markdown(agent5_output)
 
 else:
-    st.info("👈 Voer je permanente API-sleutel in de zijbalk in, kies je favoriete aandelen en klik op de knop hierboven om de scanner te starten!")
+    st.info("👈 Voer je AQ Token in de zijbalk in en klik op de knop hierboven om de scanner te starten!")
