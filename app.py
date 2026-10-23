@@ -13,11 +13,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# Stijlvolle opmaak
+# Stijlvolle opmaak & mobiel-vriendelijke correcties voor metrische getallen
 st.markdown("""
 <style>
     .main-header { font-size: 26px; font-weight: bold; color: #1E3A8A; }
     .sub-header { font-size: 18px; font-weight: bold; color: #374151; }
+    div[data-testid="stMetricValue"] { font-size: 22px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -50,7 +51,7 @@ selected_tickers = st.sidebar.multiselect(
     default=["THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)"]
 )
 
-# --- LIVE MARKT TICKER BAR ---
+# --- LIVE MARKT TICKER BAR (Verdeeld over 2 rijen voor perfecte leesbaarheid) ---
 st.markdown("### 📊 Live Marktoverzicht")
 ticker_symbols = {
     "BIST 100": "XU100.IS",
@@ -62,20 +63,28 @@ ticker_symbols = {
     "VIX (Angst)": "^VIX"
 }
 
-cols = st.columns(len(ticker_symbols))
-for i, (name, symbol) in enumerate(ticker_symbols.items()):
-    with cols[i]:
-        try:
-            t_data = yf.Ticker(symbol).history(period="2d")
-            if not t_data.empty:
-                current_price = t_data['Close'].iloc[-1]
-                prev_price = t_data['Close'].iloc[-2]
-                change = ((current_price - prev_price) / prev_price) * 100
-                st.metric(label=name, value=f"{current_price:,.2f}", delta=f"{change:+.2f}%")
-            else:
-                st.metric(label=name, value="N/B")
-        except Exception:
-            st.metric(label=name, value="Fout bij laden")
+items = list(ticker_symbols.items())
+row1_items = items[:4]
+row2_items = items[4:]
+
+def render_tickers(sub_items):
+    cols = st.columns(len(sub_items))
+    for i, (name, symbol) in enumerate(sub_items):
+        with cols[i]:
+            try:
+                t_data = yf.Ticker(symbol).history(period="2d")
+                if not t_data.empty:
+                    current_price = t_data['Close'].iloc[-1]
+                    prev_price = t_data['Close'].iloc[-2]
+                    change = ((current_price - prev_price) / prev_price) * 100
+                    st.metric(label=name, value=f"{current_price:,.2f}", delta=f"{change:+.2f}%")
+                else:
+                    st.metric(label=name, value="N/B")
+            except Exception:
+                st.metric(label=name, value="Fout")
+
+render_tickers(row1_items)
+render_tickers(row2_items)
 
 st.markdown("---")
 
