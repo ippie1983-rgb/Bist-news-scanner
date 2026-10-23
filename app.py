@@ -1,10 +1,7 @@
-import os
-import json
 import streamlit as st
 import yfinance as yf
+import google.generativeai as genai
 import pandas as pd
-import urllib.request
-import urllib.parse
 from datetime import datetime
 
 # Pagina configuratie
@@ -25,12 +22,25 @@ st.markdown("""
 st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 5-Agent Nieuws- en Analistenscanner</p>', unsafe_allow_html=True)
 st.markdown("Een krachtige nieuws- en analistenscanner voor **Borsa Istanbul (BIST)**, **Goud** en **Zilver**, aangedreven door 5 gespecialiseerde AI-agents.")
 
-# --- VASTE AUTHENTICATIE (Verliest nooit meer je token!) ---
-HARDCODED_TOKEN = "AQ.Ab8RN6IsqWA1cXamdisYVAfMs0_d86DvJ92nSTp6euEG5ti_vw"
+# --- ZIJBALK: API SLEUTEL & CONFIGURATIE ---
+st.sidebar.header("⚙️ Instellingen & API Key")
 
-# --- ZIJBALK: CONFIGURATIE ---
-st.sidebar.header("⚙️ Instellingen")
-st.sidebar.success("✅ Authenticatie is permanent geladen!")
+# Veld voor een echte AIza... sleutel
+api_key_input = st.sidebar.text_input(
+    "Google Gemini API Key (AIza...)",
+    type="password",
+    value="",
+    help="Plak hier je permanente API-sleutel die begint met AIza..."
+)
+
+if not api_key_input:
+    st.sidebar.error("⚠️ Vul je permanente API-sleutel (AIza...) hierboven in om de agents te laten werken.")
+else:
+    try:
+        genai.configure(api_key=api_key_input)
+        st.sidebar.success("✅ API-sleutel succesvol ingesteld!")
+    except Exception as e:
+        st.sidebar.error(f"Fout bij instellen sleutel: {e}")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Aandelen Selectie (Agent 1)")
@@ -69,39 +79,22 @@ for i, (name, symbol) in enumerate(ticker_symbols.items()):
 
 st.markdown("---")
 
-# Robuuste hulpfunctie die direct het vaste token gebruikt
+# Officiële, stabiele hulpfunctie via de Google SDK
 def run_gemini_agent(prompt_text, system_instruction=""):
-    active_token = HARDCODED_TOKEN.strip()
+    if not api_key_input:
+        return "❌ Fout: Geen API Key ingevoerd in de zijbalk."
+    
     models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
     last_error = None
     
     for model_name in models_to_try:
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-            headers = {
-                "Content-Type": "application/json",
-            }
-            if active_token.startswith("AQ") or len(active_token) > 50:
-                headers["Authorization"] = f"Bearer {active_token}"
-            else:
-                headers["x-goog-api-key"] = active_token
-            
-            payload = {
-                "contents": [{"parts": [{"text": prompt_text}]}],
-                "generationConfig": {"temperature": 0.2}
-            }
-            if system_instruction:
-                payload["system_instruction"] = {"parts": [{"text": system_instruction}]}
-            
-            req = urllib.request.Request(
-                url, 
-                data=json.dumps(payload).encode("utf-8"), 
-                headers=headers, 
-                method="POST"
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                system_instruction=system_instruction
             )
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                res_json = json.loads(resp.read().decode("utf-8"))
-                return res_json["candidates"][0]["content"]["parts"][0]["text"]
+            response = model.generate_content(prompt_text)
+            return response.text
         except Exception as e:
             last_error = str(e)
             continue
@@ -113,93 +106,96 @@ st.markdown("### 🤖 Start de 5-Agent Intelligence Ketting")
 st.markdown("Druk op de knop hieronder om alle 5 de agents achter elkaar te laten samenwerken: van nieuwsverzameling tot eindcontrole.")
 
 if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
-    tickers_clean = [t.split(" ")[0] for t in selected_tickers]
-    
-    # --- AGENT 1 ---
-    with st.spinner("🇹🇷 Agent 1 is bezig: Turkije, politiek, aanhoudingen en BIST-aandelen scannen..."):
-        prompt_agent1 = f"""
-        Jij bent Agent 1: BIST, Türkiye & Aandelen Intelligence Agent.
-        Geef een grondige analyse van de huidige situatie rondom Turkije, Borsa Istanbul (BIST), de Turkse economie, politiek, toespraken, en eventuele aanhoudingen, invallen, fondsschandalen of SPK-maatregelen.
-        Focus ook specifiek op deze BIST aandelen: {tickers_clean}.
+    if not api_key_input:
+        st.error("Voer eerst je permanente API Key in via de zijbalk.")
+    else:
+        tickers_clean = [t.split(" ")[0] for t in selected_tickers]
         
-        TAAL & STIJL:
-        - Schrijf in 100% begrijpelijk Nederlands (Jip-en-Janneketaal) voor een leek die geen econoom is.
-        - Leg moeilijke termen direct in een simpele zin uit.
-        """
-        agent1_output = run_gemini_agent(prompt_agent1, "Je bent een deskundige Turkse marktexpert die in simpele taal communiceert.")
-    
-    # --- AGENT 2 ---
-    with st.spinner("🌍 Agent 2 is bezig: Internationaal nieuws, oorlogsdreiging en Goud/Zilver analisten scannen..."):
-        prompt_agent2 = f"""
-        Jij bent Agent 2: Global Macro, War & Gold/Silver Meta-Analyst.
-        Analyseer het internationale nieuws over:
-        1. Geopolitiek en oorlogsdreiging (Midden-Oosten, Oekraïne, etc.) en de impact op Turkije en edelmetalen.
-        2. Goud en Zilver drivers (Fed rente, Amerikaanse inflatie, Dollar index, centrale banken).
-        3. Wat zeggen internationale en Turkse topanalisten hierover?
+        # --- AGENT 1 ---
+        with st.spinner("🇹🇷 Agent 1 is bezig: Turkije, politiek, aanhoudingen en BIST-aandelen scannen..."):
+            prompt_agent1 = f"""
+            Jij bent Agent 1: BIST, Türkiye & Aandelen Intelligence Agent.
+            Geef een grondige analyse van de huidige situatie rondom Turkije, Borsa Istanbul (BIST), de Turkse economie, politiek, toespraken, en eventuele aanhoudingen, invallen, fondsschandalen of SPK-maatregelen.
+            Focus ook specifiek op deze BIST aandelen: {tickers_clean}.
+            
+            TAAL & STIJL:
+            - Schrijf in 100% begrijpelijk Nederlands (Jip-en-Janneketaal) voor een leek die geen econoom is.
+            - Leg moeilijke termen direct in een simpele zin uit.
+            """
+            agent1_output = run_gemini_agent(prompt_agent1, "Je bent een deskundige Turkse marktexpert die in simpele taal communiceert.")
         
-        TAAL & STIJL:
-        - Schrijf in 100% begrijpelijk Nederlands (Jip-en-Janneketaal) voor een leek.
-        """
-        agent2_output = run_gemini_agent(prompt_agent2, "Je bent een macro- en edelmetaalanalist die complexe wereldgebeurtenissen uitlegt in begrijpelijke taal.")
+        # --- AGENT 2 ---
+        with st.spinner("🌍 Agent 2 is bezig: Internationaal nieuws, oorlogsdreiging en Goud/Zilver analisten scannen..."):
+            prompt_agent2 = f"""
+            Jij bent Agent 2: Global Macro, War & Gold/Silver Meta-Analyst.
+            Analyseer het internationale nieuws over:
+            1. Geopolitiek en oorlogsdreiging (Midden-Oosten, Oekraïne, etc.) en de impact op Turkije en edelmetalen.
+            2. Goud en Zilver drivers (Fed rente, Amerikaanse inflatie, Dollar index, centrale banken).
+            3. Wat zeggen internationale en Turkse topanalisten hierover?
+            
+            TAAL & STIJL:
+            - Schrijf in 100% begrijpelijk Nederlands (Jip-en-Janneketaal) voor een leek.
+            """
+            agent2_output = run_gemini_agent(prompt_agent2, "Je bent een macro- en edelmetaalanalist die complexe wereldgebeurtenissen uitlegt in begrijpelijke taal.")
 
-    # --- AGENT 3 ---
-    with st.spinner("🕵️‍♂️ Agent 3 is bezig: Fake news filter en bronnencontrole uitvoeren..."):
-        prompt_agent3 = f"""
-        Jij bent Agent 3: Fake News, Rumor & Source Verification Agent (De Waarheids-Filter).
-        Neem de bevindingen van Agent 1 en Agent 2:
-        - Agent 1 bevindingen: {agent1_output}
-        - Agent 2 bevindingen: {agent2_output}
-        
-        Controleer kritisch of deze berichten betrouwbaar zijn of dat het kan gaan om onbevestigde geruchten of paniekzaaierij.
-        Geef elk belangrijk punt een duidelijk stempel:
-        - ✅ Betrouwbaar / Waarschijnlijk
-        - ⚠️ Onbevestigd Gerucht (Voorzichtig!)
-        - ❌ Onbetrouwbaar / Speculatie
-        
-        TAAL & STIJL:
-        - Schrijf in helder, simpel Nederlands.
-        """
-        agent3_output = run_gemini_agent(prompt_agent3, "Je bent een strenge factchecker die geruchten en speculaties kritisch bekijkt.")
+        # --- AGENT 3 ---
+        with st.spinner("🕵️‍♂️ Agent 3 is bezig: Fake news filter en bronnencontrole uitvoeren..."):
+            prompt_agent3 = f"""
+            Jij bent Agent 3: Fake News, Rumor & Source Verification Agent (De Waarheids-Filter).
+            Neem de bevindingen van Agent 1 en Agent 2:
+            - Agent 1 bevindingen: {agent1_output}
+            - Agent 2 bevindingen: {agent2_output}
+            
+            Controleer kritisch of deze berichten betrouwbaar zijn of dat het kan gaan om onbevestigde geruchten of paniekzaaierij.
+            Geef elk belangrijk punt een duidelijk stempel:
+            - ✅ Betrouwbaar / Waarschijnlijk
+            - ⚠️ Onbevestigd Gerucht (Voorzichtig!)
+            - ❌ Onbetrouwbaar / Speculatie
+            
+            TAAL & STIJL:
+            - Schrijf in helder, simpel Nederlands.
+            """
+            agent3_output = run_gemini_agent(prompt_agent3, "Je bent een strenge factchecker die geruchten en speculaties kritisch bekijkt.")
 
-    # --- AGENT 4 ---
-    with st.spinner("💡 Agent 4 is bezig: Concreet beleggingsadvies in simpele taal opstellen..."):
-        prompt_agent4 = f"""
-        Jij bent Agent 4: Master Strategy & Plain-Dutch Investment Advisor (De Hoofd-Adviseur).
-        Gebruik de inzichten van Agent 3 om een helder, praktisch advies op te stellen in simpele Jip-en-Janneketaal voor een niet-econoom.
-        
-        Geef antwoord op:
-        1. Wat betekent dit voor **Goud & Zilver** (zowel in USD als Gram in Turkse Lira)?
-        2. Wat betekent dit voor de **BIST 100 en jouw geselecteerde aandelen ({tickers_clean})**? (Kopen, Vasthouden, Winst nemen of Even afwachten — inclusief een simpele "Waarom?").
-        3. Wat is de verwachting voor de korte termijn?
-        """
-        agent4_output = run_gemini_agent(prompt_agent4, "Je bent een toegankelijke beleggingsadviseur die complexe marktinformatie vertaalt naar begrijpelijke mensentaal.")
+        # --- AGENT 4 ---
+        with st.spinner("💡 Agent 4 is bezig: Concreet beleggingsadvies in simpele taal opstellen..."):
+            prompt_agent4 = f"""
+            Jij bent Agent 4: Master Strategy & Plain-Dutch Investment Advisor (De Hoofd-Adviseur).
+            Gebruik de inzichten van Agent 3 om een helder, praktisch advies op te stellen in simpele Jip-en-Janneketaal voor een niet-econoom.
+            
+            Geef antwoord op:
+            1. Wat betekent dit voor **Goud & Zilver** (zowel in USD als Gram in Turkse Lira)?
+            2. Wat betekent dit voor de **BIST 100 en jouw geselecteerde aandelen ({tickers_clean})**? (Kopen, Vasthouden, Winst nemen of Even afwachten — inclusief een simpele "Waarom?").
+            3. Wat is de verwachting voor de korte termijn?
+            """
+            agent4_output = run_gemini_agent(prompt_agent4, "Je bent een toegankelijke beleggingsadviseur die complexe marktinformatie vertaalt naar begrijpelijke mensentaal.")
 
-    # --- AGENT 5 ---
-    with st.spinner("⚖️ Agent 5 is bezig: Eindcontrole en risico-audit uitvoeren (Devil's Advocate)..."):
-        prompt_agent5 = f"""
-        Jij bent Agent 5: Chief Auditor & Strategy Controller (De Eind-Controleur / Devil's Advocate).
-        Jij controleert het werk van Agent 1, 2, 3 en het advies van Agent 4.
-        - Agent 4 advies: {agent4_output}
-        
-        Controleer kritisch op blinde vlekken of risico's en geef een definitief, gecontroleerd eindoordeel in simpele taal.
-        """
-        agent5_output = run_gemini_agent(prompt_agent5, "Je bent een kritische risicocontroleur en eindbaas die alle beleggingsadviezen streng narekent op risico's.")
+        # --- AGENT 5 ---
+        with st.spinner("⚖️ Agent 5 is bezig: Eindcontrole en risico-audit uitvoeren (Devil's Advocate)..."):
+            prompt_agent5 = f"""
+            Jij bent Agent 5: Chief Auditor & Strategy Controller (De Eind-Controleur / Devil's Advocate).
+            Jij controleert het werk van Agent 1, 2, 3 en het advies van Agent 4.
+            - Agent 4 advies: {agent4_output}
+            
+            Controleer kritisch op blinde vlekken of risico's en geef een definitief, gecontroleerd eindoordeel in simpele taal.
+            """
+            agent5_output = run_gemini_agent(prompt_agent5, "Je bent een kritische risicocontroleur en eindbaas die alle beleggingsadviezen streng narekent op risico's.")
 
-    # --- TOON RESULTATEN IN TABS ---
-    st.success("✅ Alle 5 Agents hebben hun analyse succesvol afgerond!")
-    
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🇹🇷 Agent 1: BIST & Lokaal", 
-        "🌍 Agent 2: Globaal & Oorlog", 
-        "🕵️‍♂️ Agent 3: Fact-Check", 
-        "💡 Agent 4: Advies", 
-        "⚖️ Agent 5: Eindcontrole"
-    ])
-    
-    with tab1:
-        st.markdown("### Agent 1: Turkije, Politiek & Aandelen Nieuws")
-        st.markdown(agent1_output)
+        # --- TOON RESULTATEN IN TABS ---
+        st.success("✅ Alle 5 Agents hebben hun analyse succesvol afgerond!")
         
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "🇹🇷 Agent 1: BIST & Lokaal", 
+            "🌍 Agent 2: Globaal & Oorlog", 
+            "🕵️‍♂️ Agent 3: Fact-Check", 
+            "💡 Agent 4: Advies", 
+            "⚖️ Agent 5: Eindcontrole"
+        ])
+        
+        with tab1:
+            st.markdown("### Agent 1: Turkije, Politiek & Aandelen Nieuws")
+            st.markdown(agent1_output)
+            
         with tab2:
             st.markdown("### Agent 2: Wereldnieuws, Oorlog & Edelmetalen")
             st.markdown(agent2_output)
@@ -217,4 +213,4 @@ if st.button("🚀 Start Volledige 5-Agent Analyse", type="primary"):
             st.markdown(agent5_output)
 
 else:
-    st.info("👈 Kies je favoriete aandelen in de zijbalk en klik op de rode knop hierboven om direct de 5-Agent analyse te starten!")
+    st.info("👈 Voer je permanente API-sleutel in de zijbalk in, kies je favoriete aandelen en klik op de knop hierboven om de scanner te starten!")
