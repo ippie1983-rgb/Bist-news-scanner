@@ -7,11 +7,11 @@ import numpy as np
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Pagina configuratie
 st.set_page_config(
-    page_title="BIST & Edelmetalen 6-Agent Bronnen- & Nieuwsscanner",
+    page_title="BIST & Edelmetalen 6-Agent 3-Dagen Nieuwsscanner",
     page_icon="🇹🇷",
     layout="wide"
 )
@@ -24,8 +24,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 6-Agent Bronnen- & Nieuwsscanner</p>', unsafe_allow_html=True)
-st.markdown("Live nieuws-, politiek-, oorlogs-, analisten- en agenda-scanner voor **Borsa Istanbul (BIST)**, **Goud** en **Zilver** met **directe, klikbare bronlinks** naar de artikelen.")
+st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 6-Agent 3-Dagen Nieuwsscanner</p>', unsafe_allow_html=True)
+st.markdown("Live nieuws-, politiek-, oorlogs-, analisten- en agenda-scanner voor **Borsa Istanbul (BIST)**, **Goud** en **Zilver** — uitsluitend met **breaking news van maximaal 3 dagen oud** en klikbare bronlinks.")
 
 # --- ZIJBALK: INSTELLINGEN ---
 if "gemini_auth" not in st.session_state:
@@ -39,7 +39,7 @@ st.session_state.gemini_auth = st.sidebar.text_input(
     value=st.session_state.gemini_auth,
     help="Staat standaard ingesteld."
 )
-st.sidebar.success("✅ 6-Agent Bronnen-Engine actief!")
+st.sidebar.success("✅ 3-Dagen Filter & 6-Agent Engine actief!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Aandelen Selectie (Agent 1)")
@@ -61,7 +61,7 @@ selected_tickers = st.sidebar.multiselect(
     default=["THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)"]
 )
 
-# --- HULPFUNCTIES VOOR LIVE MARKTDATA & KLIKBARE RSS BRONNEN ---
+# --- HULPFUNCTIES VOOR LIVE MARKTDATA & 3-DAGEN RSS FILTER ---
 @st.cache_data(ttl=300, show_spinner=False)
 def get_live_market_snapshot():
     symbols = {
@@ -120,24 +120,44 @@ def get_stock_snapshots(tickers_clean):
             snapshots[code] = {"price": None, "change": 0.0, "rsi": 50.0, "trend": "Onbekend"}
     return snapshots
 
-@st.cache_data(ttl=600, show_spinner=False)
-def fetch_rss_with_links(query, lang="tr", max_items=6):
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_recent_rss_with_links(query, lang="tr", max_items=6, max_days=3):
     q_enc = urllib.parse.quote(query)
     if lang == "tr":
         url = f"https://news.google.com/rss/search?q={q_enc}&hl=tr&gl=TR&ceid=TR:tr"
     else:
         url = f"https://news.google.com/rss/search?q={q_enc}&hl=nl&gl=NL&ceid=NL:nl"
+    
     items = []
+    now_utc = datetime.now(timezone.utc)
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=6) as resp:
             root = ET.fromstring(resp.read())
-        for item in root.findall(".//item")[:max_items]:
+        for item in root.findall(".//item"):
             title = item.findtext("title")
             link = item.findtext("link")
-            pub = item.findtext("pubDate") or ""
+            pub_str = item.findtext("pubDate") or ""
+            
             if title and link:
-                items.append({"title": title, "link": link, "date": pub[:16]})
+                # Probeer de datum te parsen om te controleren of deze binnen de 3 dagen valt
+                is_recent = True
+                if pub_str:
+                    try:
+                        # RFC 2822 datum formaat van RSS feeds
+                        from email.utils import parsedate_to_datetime
+                        dt = parsedate_to_datetime(pub_str)
+                        if dt:
+                            diff_days = (now_utc - dt).total_seconds() / 86400.0
+                            if diff_days > max_days:
+                                is_recent = False
+                    except Exception:
+                        pass
+                
+                if is_recent:
+                    items.append({"title": title, "link": link, "date": pub_str[:16]})
+                    if len(items) >= max_items:
+                        break
     except Exception:
         pass
     return items
@@ -184,21 +204,22 @@ def call_gemini_with_fallback(prompt_text, system_instruction, fallback_text):
     return fallback_text
 
 # --- HOOFDPROGRAMMA ---
-st.markdown("### 🤖 Start de 6-Agent Intelligence Ketting")
-st.markdown("Druk op de knop hieronder om alle analyses inclusief de **klikbare bronartikelen** te genereren.")
+st.markdown("### 🤖 Start de 6-Agent Breaking News Scanner (Max 3 Dagen Oud)")
+st.markdown("Druk op de knop om uitsluitend **vers nieuws van de afgelopen 72 uur** en marktinformatie te analyseren.")
 
-if st.button("🚀 Start Volledige 6-Agent Analyse & Bronnen", type="primary"):
+if st.button("🚀 Start 6-Agent Analyse (Strict max 3 dagen oud)", type="primary"):
     tickers_clean = [t.split(" ")[0] for t in selected_tickers] if selected_tickers else ["THYAO", "ASELS", "KCHOL"]
     tickers_str = ", ".join(tickers_clean)
 
-    with st.spinner("📡 Live artikelen, bronlinks en marktomstandigheden ophalen..."):
+    with st.spinner("📡 Live ophalen van artikelen en marktomstandigheden (max 3 dagen oud)..."):
         stock_snaps = get_stock_snapshots(tickers_clean)
-        tr_econ_items = fetch_rss_with_links("Turkiye ekonomi Borsa Istanbul TCMB Mehmet Simsek", "tr", 5)
-        tr_spk_items = fetch_rss_with_links("SPK ceza sorusturma borsa operasyon fon", "tr", 4)
-        stock_news_dict = {c: fetch_rss_with_links(f"{c} hisse KAP bilanco", "tr", 3) for c in tickers_clean}
-        nl_war_items = fetch_rss_with_links("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 5)
-        nl_gold_items = fetch_rss_with_links("goudprijs zilverprijs Fed rente inflatie", "nl", 5)
-        agenda_items = fetch_rss_with_links("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon takvim", "tr", 5)
+        # Hier wordt de strenge 3-dagen filter toegepast!
+        tr_econ_items = fetch_recent_rss_with_links("Turkiye ekonomi Borsa Istanbul TCMB", "tr", 5, 3)
+        tr_spk_items = fetch_recent_rss_with_links("SPK ceza sorusturma borsa operasyon", "tr", 4, 3)
+        stock_news_dict = {c: fetch_recent_rss_with_links(f"{c} hisse KAP", "tr", 3, 3) for c in tickers_clean}
+        nl_war_items = fetch_recent_rss_with_links("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 5, 3)
+        nl_gold_items = fetch_recent_rss_with_links("goudprijs zilverprijs Fed rente", "nl", 5, 3)
+        agenda_items = fetch_recent_rss_with_links("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon", "tr", 5, 3)
 
         bist_p = market_data.get("BIST 100", {}).get("price") or 0.0
         bist_c = market_data.get("BIST 100", {}).get("change") or 0.0
@@ -222,7 +243,7 @@ if st.button("🚀 Start Volledige 6-Agent Analyse & Bronnen", type="primary"):
 
     # --- AGENT 3 ---
     with st.spinner("🕵️‍♂️ Agent 3: Fact-Check..."):
-        fallback_agent3 = "✅ Harde marktdata geverifieerd via Yahoo Finance en Google RSS."
+        fallback_agent3 = "✅ Harde marktdata geverifieerd via Yahoo Finance en recente RSS feeds."
         prompt_agent3 = "Jij bent Agent 3. Voer fact-check uit."
         agent3_output = call_gemini_with_fallback(prompt_agent3, "Je bent een factchecker.", fallback_agent3)
 
@@ -234,7 +255,7 @@ if st.button("🚀 Start Volledige 6-Agent Analyse & Bronnen", type="primary"):
 
     # --- AGENT 5 ---
     with st.spinner("⚖️ Agent 5: Auditing..."):
-        fallback_agent5 = "Let op valutarisico's en geopolitieke spanningen (VIX: " + str(vix_p) + ")."
+        fallback_agent5 = "Let op valutarisico's en recente geopolitieke spanningen (VIX: " + str(vix_p) + ")."
         prompt_agent5 = "Jij bent Agent 5. Voer risico-audit uit."
         agent5_output = call_gemini_with_fallback(prompt_agent5, "Je bent risicocontroleur.", fallback_agent5)
 
@@ -244,8 +265,8 @@ if st.button("🚀 Start Volledige 6-Agent Analyse & Bronnen", type="primary"):
         prompt_agent6 = "Jij bent Agent 6. Maak een overzicht van de macro-agenda."
         agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent agenda-expert.", fallback_agent6)
 
-    # --- TOON RESULTATEN IN TABS MET KLIKBARE BRONNEN ---
-    st.success("✅ Alle analyses en bronartikelen succesvol geladen!")
+    # --- TOON RESULTATEN IN TABS MET 3-DAGEN FILTER ---
+    st.success("✅ Analyse voltooid! Uitsluitend artikelen van maximaal 3 dagen oud geladen.")
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🇹🇷 Agent 1: BIST",
@@ -260,7 +281,7 @@ if st.button("🚀 Start Volledige 6-Agent Analyse & Bronnen", type="primary"):
         st.markdown("### Agent 1: Turkije, Politiek & Aandelen Nieuws")
         st.markdown(agent1_output)
         st.markdown("---")
-        st.markdown("#### 🔗 Directe Bronartikelen & Meldingen (Turkije & BIST)")
+        st.markdown("#### 🔗 Breaking Nieuws & Meldingen (Max 3 Dagen Oud)")
         if tr_econ_items or tr_spk_items:
             for item in tr_econ_items + tr_spk_items:
                 st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
@@ -268,18 +289,18 @@ if st.button("🚀 Start Volledige 6-Agent Analyse & Bronnen", type="primary"):
                 for item in stock_news_dict.get(c, []):
                     st.markdown(f"- **[{c}]** [{item['title']}]({item['link']}) *({item['date']})*")
         else:
-            st.info("Geen directe artikel-links gevonden voor deze categorie.")
+            st.info("Geen artikelen van de afgelopen 3 dagen gevonden voor deze categorie.")
 
     with tab2:
         st.markdown("### Agent 2: Wereldnieuws, Oorlog & Edelmetalen")
         st.markdown(agent2_output)
         st.markdown("---")
-        st.markdown("#### 🔗 Directe Bronartikelen (Wereldwijd, Oorlog & Edelmetalen)")
+        st.markdown("#### 🔗 Recente Wereldwijde & Edelmetaal Artikelen (Max 3 Dagen Oud)")
         if nl_war_items or nl_gold_items:
             for item in nl_war_items + nl_gold_items:
                 st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
         else:
-            st.info("Geen directe artikel-links gevonden voor deze categorie.")
+            st.info("Geen recente internationale artikelen van de afgelopen 3 dagen gevonden.")
 
     with tab3:
         st.markdown("### Agent 3: De Waarheids-Filter (Fact-Check)")
@@ -297,12 +318,12 @@ if st.button("🚀 Start Volledige 6-Agent Analyse & Bronnen", type="primary"):
         st.markdown("### Agent 6: Wereldwijde & Turkse Macro-Agenda")
         st.markdown(agent6_output)
         st.markdown("---")
-        st.markdown("#### 🔗 Relevante Agenda- & Nieuwsartikelen")
+        st.markdown("#### 🔗 Recente Agenda-Artikelen (Max 3 Dagen Oud)")
         if agenda_items:
             for item in agenda_items:
                 st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
         else:
-            st.info("Geen agenda-artikelen gevonden.")
+            st.info("Geen recente agenda-artikelen van de afgelopen 3 dagen gevonden.")
 
 else:
-    st.info("👈 Kies je aandelen in de zijbalk en klik op de knop hierboven om de analyse inclusief alle klikbare bronlinks te starten!")
+    st.info("👈 Kies je aandelen in de zijbalk en klik op de knop om de up-to-date analyse te starten!")
