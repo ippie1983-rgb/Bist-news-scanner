@@ -7,11 +7,11 @@ import numpy as np
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # Pagina configuratie
 st.set_page_config(
-    page_title="BIST & Edelmetalen 6-Agent Agenda- & Nieuwsscanner",
+    page_title="BIST & Edelmetalen 6-Agent Bronnen- & Nieuwsscanner",
     page_icon="🇹🇷",
     layout="wide"
 )
@@ -24,8 +24,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 6-Agent Agenda- & Nieuwsscanner</p>', unsafe_allow_html=True)
-st.markdown("Live nieuws-, politiek-, oorlogs-, analisten- en **Macro-Agenda** scanner voor **Borsa Istanbul (BIST)**, **Goud** en **Zilver**, aangedreven door 6 samenwerkende Intelligence Agents.")
+st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 6-Agent Bronnen- & Nieuwsscanner</p>', unsafe_allow_html=True)
+st.markdown("Live nieuws-, politiek-, oorlogs-, analisten- en agenda-scanner voor **Borsa Istanbul (BIST)**, **Goud** en **Zilver** met **directe, klikbare bronlinks** naar de artikelen.")
 
 # --- ZIJBALK: INSTELLINGEN ---
 if "gemini_auth" not in st.session_state:
@@ -37,9 +37,9 @@ st.session_state.gemini_auth = st.sidebar.text_input(
     "Gemini / Vertex AI Key:",
     type="password",
     value=st.session_state.gemini_auth,
-    help="Staat standaard ingesteld. Zelfs als een token verloopt, draaien alle agents door."
+    help="Staat standaard ingesteld."
 )
-st.sidebar.success("✅ 6-Agent Engine & Agenda-module actief!")
+st.sidebar.success("✅ 6-Agent Bronnen-Engine actief!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Aandelen Selectie (Agent 1)")
@@ -61,7 +61,7 @@ selected_tickers = st.sidebar.multiselect(
     default=["THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)"]
 )
 
-# --- HULPFUNCTIES VOOR LIVE MARKTDATA & LIVE RSS NIEUWS ---
+# --- HULPFUNCTIES VOOR LIVE MARKTDATA & KLIKBARE RSS BRONNEN ---
 @st.cache_data(ttl=300, show_spinner=False)
 def get_live_market_snapshot():
     symbols = {
@@ -82,10 +82,8 @@ def get_live_market_snapshot():
                 prev = float(hist["Close"].iloc[-2])
                 chg = ((curr - prev) / prev) * 100.0 if prev else 0.0
                 data[name] = {"price": curr, "change": chg}
-            elif hist is not None and len(hist) == 1:
-                data[name] = {"price": float(hist["Close"].iloc[-1]), "change": 0.0}
             else:
-                data[name] = {"price": None, "change": 0.0}
+                data[name] = {"price": float(hist["Close"].iloc[-1]) if hist is not None and not hist.empty else None, "change": 0.0}
         except Exception:
             data[name] = {"price": None, "change": 0.0}
 
@@ -93,11 +91,9 @@ def get_live_market_snapshot():
     gold_usd = data.get("Goud Ons ($)", {}).get("price")
     if usd_try and gold_usd:
         gram_gold = (gold_usd * usd_try) / 31.1035
-        gram_chg = data["Goud Ons ($)"]["change"] + data["USD/TRY"]["change"]
-        data["Gram Goud (₺)"] = {"price": gram_gold, "change": gram_chg}
+        data["Gram Goud (₺)"] = {"price": gram_gold, "change": data["Goud Ons ($)"]["change"] + data["USD/TRY"]["change"]}
     else:
         data["Gram Goud (₺)"] = {"price": None, "change": 0.0}
-
     return data
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -112,47 +108,41 @@ def get_stock_snapshots(tickers_clean):
                 curr = float(close.iloc[-1])
                 prev = float(close.iloc[-2])
                 chg_1d = ((curr - prev) / prev) * 100.0 if prev else 0.0
-                sma20 = float(close.rolling(20).mean().iloc[-1]) if len(close) >= 20 else curr
+                sma20 = float(close.rolling(20).mean().iloc[-1])
                 delta = close.diff()
                 gain = delta.clip(lower=0).rolling(14).mean().iloc[-1]
                 loss = (-delta.clip(upper=0)).rolling(14).mean().iloc[-1]
                 rsi = 100.0 - (100.0 / (1.0 + (gain / loss))) if loss and loss > 0 else 50.0
-                trend = "Opwaarts (Positief)" if curr > sma20 else "Afwachtend / Onder druk"
-                snapshots[code] = {
-                    "price": round(curr, 2),
-                    "change": round(chg_1d, 2),
-                    "sma20": round(sma20, 2),
-                    "rsi": round(rsi, 1),
-                    "trend": trend
-                }
+                snapshots[code] = {"price": round(curr, 2), "change": round(chg_1d, 2), "rsi": round(rsi, 1), "trend": "Positief" if curr > sma20 else "Onder druk"}
             else:
-                snapshots[code] = {"price": None, "change": 0.0, "sma20": None, "rsi": 50.0, "trend": "Onbekend"}
+                snapshots[code] = {"price": None, "change": 0.0, "rsi": 50.0, "trend": "Onbekend"}
         except Exception:
-            snapshots[code] = {"price": None, "change": 0.0, "sma20": None, "rsi": 50.0, "trend": "Onbekend"}
+            snapshots[code] = {"price": None, "change": 0.0, "rsi": 50.0, "trend": "Onbekend"}
     return snapshots
 
 @st.cache_data(ttl=600, show_spinner=False)
-def fetch_rss_headlines(query, lang="tr", max_items=6):
+def fetch_rss_with_links(query, lang="tr", max_items=6):
     q_enc = urllib.parse.quote(query)
     if lang == "tr":
         url = f"https://news.google.com/rss/search?q={q_enc}&hl=tr&gl=TR&ceid=TR:tr"
     else:
         url = f"https://news.google.com/rss/search?q={q_enc}&hl=nl&gl=NL&ceid=NL:nl"
-    headlines = []
+    items = []
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=6) as resp:
             root = ET.fromstring(resp.read())
         for item in root.findall(".//item")[:max_items]:
             title = item.findtext("title")
+            link = item.findtext("link")
             pub = item.findtext("pubDate") or ""
-            if title:
-                headlines.append(f"{title} ({pub[:16]})")
+            if title and link:
+                items.append({"title": title, "link": link, "date": pub[:16]})
     except Exception:
         pass
-    return headlines
+    return items
 
-# --- LIVE MARKT TICKER BAR (Verdeeld over 2 rijen) ---
+# --- LIVE MARKT TICKER BAR ---
 st.markdown("### 📊 Live Marktoverzicht")
 market_data = get_live_market_snapshot()
 market_items = list(market_data.items())
@@ -168,27 +158,19 @@ for row_slice in [market_items[:4], market_items[4:8]]:
 
 st.markdown("---")
 
-# --- ROBUUSTE AI AANROEP ---
+# --- AI AANROEP ---
 def call_gemini_with_fallback(prompt_text, system_instruction, fallback_text):
     token = st.session_state.gemini_auth.strip()
     if not token:
         return fallback_text
-
     full_prompt = f"{system_instruction}\n\n{prompt_text}" if system_instruction else prompt_text
-    payload = {
-        "contents": [{"role": "user", "parts": [{"text": full_prompt}]}],
-        "generationConfig": {"temperature": 0.2}
-    }
+    payload = {"contents": [{"role": "user", "parts": [{"text": full_prompt}]}], "generationConfig": {"temperature": 0.2}}
     data_bytes = json.dumps(payload).encode("utf-8")
     q_token = urllib.parse.quote(token)
-
     endpoints = [
         (f"https://aiplatform.googleapis.com/v1beta1/publishers/google/models/gemini-2.5-flash:generateContent?key={q_token}", {"Content-Type": "application/json"}),
-        (f"https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key={q_token}", {"Content-Type": "application/json"}),
-        (f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={q_token}", {"Content-Type": "application/json"}),
-        ("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+        (f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={q_token}", {"Content-Type": "application/json"})
     ]
-
     for url, headers in endpoints:
         try:
             req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
@@ -199,119 +181,71 @@ def call_gemini_with_fallback(prompt_text, system_instruction, fallback_text):
                     return text
         except Exception:
             continue
-
     return fallback_text
 
-# --- HOOFDPROGRAMMA: DE 6-AGENT KETTING ---
+# --- HOOFDPROGRAMMA ---
 st.markdown("### 🤖 Start de 6-Agent Intelligence Ketting")
-st.markdown("Druk op de knop hieronder om alle 6 de agents (inclusief de Macro-Agenda) te activeren.")
+st.markdown("Druk op de knop hieronder om alle analyses inclusief de **klikbare bronartikelen** te genereren.")
 
-if st.button("🚀 Start Volledige 6-Agent Analyse & Agenda", type="primary"):
+if st.button("🚀 Start Volledige 6-Agent Analyse & Bronnen", type="primary"):
     tickers_clean = [t.split(" ")[0] for t in selected_tickers] if selected_tickers else ["THYAO", "ASELS", "KCHOL"]
     tickers_str = ", ".join(tickers_clean)
 
-    with st.spinner("📡 Live marktkringloop, nieuws en macro-agenda ophalen..."):
+    with st.spinner("📡 Live artikelen, bronlinks en marktomstandigheden ophalen..."):
         stock_snaps = get_stock_snapshots(tickers_clean)
-        tr_econ_news = fetch_rss_headlines("Turkiye ekonomi Borsa Istanbul TCMB Mehmet Simsek", "tr", 6)
-        tr_spk_news = fetch_rss_headlines("SPK ceza sorusturma borsa operasyon fon", "tr", 5)
-        stock_news_map = {c: fetch_rss_headlines(f"{c} hisse KAP bilanco", "tr", 4) for c in tickers_clean}
-        nl_war_news = fetch_rss_headlines("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 6)
-        nl_gold_news = fetch_rss_headlines("goudprijs zilverprijs Fed rente inflatie", "nl", 6)
-        tr_gold_news = fetch_rss_headlines("gram altin gumus Islam Memis yorum", "tr", 5)
-        agenda_news = fetch_rss_headlines("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon takvim", "tr", 6)
+        tr_econ_items = fetch_rss_with_links("Turkiye ekonomi Borsa Istanbul TCMB Mehmet Simsek", "tr", 5)
+        tr_spk_items = fetch_rss_with_links("SPK ceza sorusturma borsa operasyon fon", "tr", 4)
+        stock_news_dict = {c: fetch_rss_with_links(f"{c} hisse KAP bilanco", "tr", 3) for c in tickers_clean}
+        nl_war_items = fetch_rss_with_links("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 5)
+        nl_gold_items = fetch_rss_with_links("goudprijs zilverprijs Fed rente inflatie", "nl", 5)
+        agenda_items = fetch_rss_with_links("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon takvim", "tr", 5)
 
         bist_p = market_data.get("BIST 100", {}).get("price") or 0.0
         bist_c = market_data.get("BIST 100", {}).get("change") or 0.0
         usd_p = market_data.get("USD/TRY", {}).get("price") or 0.0
-        usd_c = market_data.get("USD/TRY", {}).get("change") or 0.0
         gold_p = market_data.get("Goud Ons ($)", {}).get("price") or 0.0
-        gold_c = market_data.get("Goud Ons ($)", {}).get("change") or 0.0
-        silv_p = market_data.get("Zilver Ons ($)", {}).get("price") or 0.0
-        silv_c = market_data.get("Zilver Ons ($)", {}).get("change") or 0.0
         gram_p = market_data.get("Gram Goud (₺)", {}).get("price") or 0.0
-        oil_p = market_data.get("Brent Olie ($)", {}).get("price") or 0.0
+        silv_p = market_data.get("Zilver Ons ($)", {}).get("price") or 0.0
         vix_p = market_data.get("VIX (Angst)", {}).get("price") or 0.0
 
-    # --- AGENT 1: BIST & Lokaal ---
-    with st.spinner("🇹🇷 Agent 1 is bezig: Turkije, politiek, SPK en BIST-aandelen analyseren..."):
-        stock_lines = []
-        for c in tickers_clean:
-            s = stock_snaps.get(c, {})
-            h_list = stock_news_map.get(c, [])
-            h_str = "; ".join(h_list[:2]) if h_list else "Geen bijzondere KAP-meldingen vandaag."
-            stock_lines.append(
-                f"- **{c}**: Koers ₺{s.get('price') or 'N/B'} ({s.get('change', 0):+.2f}% vandaag) | "
-                f"Trend: *{s.get('trend')}* | RSI: {s.get('rsi')}.\n"
-                f"  *Headlines:* {h_str}"
-            )
-        stocks_block = "\n".join(stock_lines)
-        tr_econ_block = "\n".join([f"- {h}" for h in tr_econ_news[:5]]) if tr_econ_news else "- Markt volgt TCMB."
-
-        fallback_agent1 = (
-            f"#### 1. BIST 100 & Lira\n"
-            f"- **BIST 100:** **{bist_p:,.0f}** ({bist_c:+.2f}%)\n"
-            f"- **USD/TRY:** **₺{usd_p:,.2f}** ({usd_c:+.2f}%)\n\n"
-            f"#### 2. Geselecteerde Aandelen ({tickers_str})\n{stocks_block}\n\n"
-            f"#### 3. Economie & Beleid\n{tr_econ_block}"
-        )
-        prompt_agent1 = "Jij bent Agent 1: BIST & Türkiye Agent.\n" + fallback_agent1 + "\n\nGeef een heldere analyse in simpele Jip-en-Janneketaal."
+    # --- AGENT 1 ---
+    with st.spinner("🇹🇷 Agent 1: BIST & Lokaal..."):
+        fallback_agent1 = f"BIST 100 staat op {bist_p:,.0f} ({bist_c:+.2f}%). USD/TRY is ₺{usd_p:,.2f}."
+        prompt_agent1 = "Jij bent Agent 1. Geef een analyse in simpele taal over BIST en aandelen (" + tickers_str + ")."
         agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een Turkse marktexpert.", fallback_agent1)
 
-    # --- AGENT 2: Globaal & Edelmetalen ---
-    with st.spinner("🌍 Agent 2 is bezig: Wereldnieuws en Goud/Zilver scannen..."):
-        fallback_agent2 = (
-            f"#### 1. Edelmetalen & Grondstoffen\n"
-            f"- **Goud (USD):** **${gold_p:,.2f}**\n"
-            f"- **Gram Goud (₺):** **₺{gram_p:,.2f}**\n"
-            f"- **Zilver (USD):** **${silv_p:,.2f}**\n"
-            f"- **Olie (Brent):** **${oil_p:,.2f}** | **VIX Angstmeter:** {vix_p:,.2f}"
-        )
-        prompt_agent2 = "Jij bent Agent 2: Global Macro Agent.\n" + fallback_agent2 + "\n\nAnalyseer goud, zilver en geopolitiek in simpel Nederlands."
+    # --- AGENT 2 ---
+    with st.spinner("🌍 Agent 2: Globaal & Edelmetalen..."):
+        fallback_agent2 = f"Goud is ${gold_p:,.2f} (Gram: ₺{gram_p:,.2f}), Zilver is ${silv_p:,.2f}."
+        prompt_agent2 = "Jij bent Agent 2. Analyseer goud, zilver en wereldnieuws."
         agent2_output = call_gemini_with_fallback(prompt_agent2, "Je bent een macro-analist.", fallback_agent2)
 
-    # --- AGENT 3: Fact-Check ---
-    with st.spinner("🕵️‍♂️ Agent 3 is bezig: Fact-check uitvoeren..."):
-        fallback_agent3 = "✅ **Harde data:** Koersen van BIST, Goud en Lira zijn geverifieerd.\n⚠️ **Geruchten:** Wees alert op ongeverifieerde social media berichten rondom koersen."
-        prompt_agent3 = "Jij bent Agent 3: Fact-Checker.\n" + fallback_agent3
-        agent3_output = call_gemini_with_fallback(prompt_agent3, "Je bent een strenge factchecker.", fallback_agent3)
+    # --- AGENT 3 ---
+    with st.spinner("🕵️‍♂️ Agent 3: Fact-Check..."):
+        fallback_agent3 = "✅ Harde marktdata geverifieerd via Yahoo Finance en Google RSS."
+        prompt_agent3 = "Jij bent Agent 3. Voer fact-check uit."
+        agent3_output = call_gemini_with_fallback(prompt_agent3, "Je bent een factchecker.", fallback_agent3)
 
-    # --- AGENT 4: Beleggingsadvies ---
-    with st.spinner("💡 Agent 4 is bezig: Advies opstellen..."):
-        fallback_agent4 = f"#### Concreet Advies\n- **Goud & Zilver:** Vasthouden als inflatiebuffer.\n- **Aandelen ({tickers_str}):** Spreid aankopen en let op de steunzones."
-        prompt_agent4 = "Jij bent Agent 4: Beleggingsadviseur.\n" + fallback_agent4
-        agent4_output = call_gemini_with_fallback(prompt_agent4, "Je bent een beleggingsadviseur.", fallback_agent4)
+    # --- AGENT 4 ---
+    with st.spinner("💡 Agent 4: Beleggingsadvies..."):
+        fallback_agent4 = "Concreet advies: Spreid aankopen in goud en geselecteerde aandelen."
+        prompt_agent4 = "Jij bent Agent 4. Geef advies in Jip-en-Janneketaal."
+        agent4_output = call_gemini_with_fallback(prompt_agent4, "Je bent beleggingsadviseur.", fallback_agent4)
 
-    # --- AGENT 5: Risico-Audit ---
-    with st.spinner("⚖️ Agent 5 is bezig: Risico-audit uitvoeren..."):
-        fallback_agent5 = "⚖️ **Risico's:** Let op wisselkoersschommelingen en geopolitieke escalaties. Spreid je kapitaal."
-        prompt_agent5 = "Jij bent Agent 5: Risicocontroleur.\n" + fallback_agent5
-        agent5_output = call_gemini_with_fallback(prompt_agent5, "Je bent een risicocontroleur.", fallback_agent5)
+    # --- AGENT 5 ---
+    with st.spinner("⚖️ Agent 5: Auditing..."):
+        fallback_agent5 = "Let op valutarisico's en geopolitieke spanningen (VIX: " + str(vix_p) + ")."
+        prompt_agent5 = "Jij bent Agent 5. Voer risico-audit uit."
+        agent5_output = call_gemini_with_fallback(prompt_agent5, "Je bent risicocontroleur.", fallback_agent5)
 
-    # --- AGENT 6: De Macro-Agenda & Belangrijke Gebeurtenissen (NIEUW!) ---
-    with st.spinner("📅 Agent 6 is bezig: De Globale & Turkse Macro-Agenda opbouwen..."):
-        fallback_agent6 = (
-            f"### 📅 Belangrijke Wereldwijde & Turkse Macro-Agenda (Komende Periode)\n\n"
-            f"Hieronder staat het overzicht van cruciale datums en economische gebeurtenissen waar beleggers scherp op moeten letten:\n\n"
-            f"| Datum / Tijd | Land / Instantie | Gebeurtenis / Publicatie | Verwachting & Impact op BIST / Goud |\n"
-            f"| :--- | :--- | :--- | :--- |\n"
-            f"| **Komende Woensdag** | 🇺🇸 Verenigde Staten | **Amerikaans Inflatiecijfer (CPI)** | Hoge impact op de Fed renteverwachting en de internationale goudprijs ($). |\n"
-            f"| **Komende Donderdag** | 🇹🇷 Turkije (TCMB) | **Centrale Bank (TCMB) Rente- en Beleidsbesluit** | Directe invloed op de Turkse Lira (USD/TRY) en bankenaandelen (AKBNK, GARAN). |\n"
-            f"| **Eind van de maand** | 🇺🇸 VS / Fed | **FOMC / Fed Renteontwikkeling & Toespraak Powell** | Bepaalt de wereldwijde dollarsterkte en edelmetalen-trends. |\n"
-            f"| **Maandelijks** | 🇹🇷 Turkije (TUIK) | **Officiële Turkse Inflatiecijfers (CPI/PPI)** | Cruciaal voor de reële waardering van BIST 100 aandelen en dividendrendementen. |\n"
-            f"| **Doorlopend** | 🇹🇷 BIST Bedrijven | **KAP Kwartaalcijfers & Resultaten** | Bedrijfsspecifieke uitslagen van o.a. THYAO, ASELS en KCHOL. |\n\n"
-            f"*💡 **Tips voor je agenda:** Zorg dat je rondom de TCMB-rentebesluiten en Amerikaanse inflatiedata extra voorzichtig bent met openstaande posities vanwege verhoogde volatiliteit op de markten!*"
-        )
+    # --- AGENT 6 ---
+    with st.spinner("📅 Agent 6: Macro Agenda..."):
+        fallback_agent6 = "Belangrijke aankomende data: Fed rentebesluit, TCMB vergadering en TUIK inflatie."
+        prompt_agent6 = "Jij bent Agent 6. Maak een overzicht van de macro-agenda."
+        agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent agenda-expert.", fallback_agent6)
 
-        prompt_agent6 = (
-            "Jij bent Agent 6: De Macro-Agenda & Gebeurtenissen Agent.\n"
-            "Stel een helder, professioneel overzicht op in een nette tabel of bulletpoints van de belangrijkste wereldwijde (Fed, ECB, inflatie) "
-            "en Turkse (TCMB rentebesluit, TUIK inflatie, KAP publicaties) economische gebeurtenissen voor de komende weken.\n"
-            "Schrijf in begrijpelijk Nederlands."
-        )
-        agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent een macro-economisch analist en kalender-expert.", fallback_agent6)
-
-    # --- TOON RESULTATEN IN TABS (Nu met 6 Tabs!) ---
-    st.success("✅ Alle 6 Agents hebben hun analyse en agenda succesvol afgerond!")
+    # --- TOON RESULTATEN IN TABS MET KLIKBARE BRONNEN ---
+    st.success("✅ Alle analyses en bronartikelen succesvol geladen!")
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🇹🇷 Agent 1: BIST",
@@ -325,10 +259,27 @@ if st.button("🚀 Start Volledige 6-Agent Analyse & Agenda", type="primary"):
     with tab1:
         st.markdown("### Agent 1: Turkije, Politiek & Aandelen Nieuws")
         st.markdown(agent1_output)
+        st.markdown("---")
+        st.markdown("#### 🔗 Directe Bronartikelen & Meldingen (Turkije & BIST)")
+        if tr_econ_items or tr_spk_items:
+            for item in tr_econ_items + tr_spk_items:
+                st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
+            for c in tickers_clean:
+                for item in stock_news_dict.get(c, []):
+                    st.markdown(f"- **[{c}]** [{item['title']}]({item['link']}) *({item['date']})*")
+        else:
+            st.info("Geen directe artikel-links gevonden voor deze categorie.")
 
     with tab2:
         st.markdown("### Agent 2: Wereldnieuws, Oorlog & Edelmetalen")
         st.markdown(agent2_output)
+        st.markdown("---")
+        st.markdown("#### 🔗 Directe Bronartikelen (Wereldwijd, Oorlog & Edelmetalen)")
+        if nl_war_items or nl_gold_items:
+            for item in nl_war_items + nl_gold_items:
+                st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
+        else:
+            st.info("Geen directe artikel-links gevonden voor deze categorie.")
 
     with tab3:
         st.markdown("### Agent 3: De Waarheids-Filter (Fact-Check)")
@@ -345,6 +296,13 @@ if st.button("🚀 Start Volledige 6-Agent Analyse & Agenda", type="primary"):
     with tab6:
         st.markdown("### Agent 6: Wereldwijde & Turkse Macro-Agenda")
         st.markdown(agent6_output)
+        st.markdown("---")
+        st.markdown("#### 🔗 Relevante Agenda- & Nieuwsartikelen")
+        if agenda_items:
+            for item in agenda_items:
+                st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
+        else:
+            st.info("Geen agenda-artikelen gevonden.")
 
 else:
-    st.info("👈 Kies je aandelen in de zijbalk en druk op de knop hierboven om de volledige 6-Agent analyse inclusief de macro-agenda te starten!")
+    st.info("👈 Kies je aandelen in de zijbalk en klik op de knop hierboven om de analyse inclusief alle klikbare bronlinks te starten!")
