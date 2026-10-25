@@ -69,14 +69,14 @@ st.markdown("""
     .badge-pos { background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
     .badge-warn { background-color: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
     .badge-info { background-color: #e0e7ff; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+    .prio-pill { background-color: #0f172a; color: #f8fafc; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">🇹🇷 BIST 100 & Turkse Economie Master Scanner (Clean Deduplicated Edition)</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-header">🇹🇷 BIST 100 & Turkse Economie Master Scanner (Prioritized News Hub)</p>', unsafe_allow_html=True)
 st.markdown(
-    "Live scanner voor **Borsa İstanbul (alle 100 BIST-aandelen)**, **SPK- & Fondsschandalen**, **Resmi Gazete**, "
-    "**Brüt Takas & Handelsverboden**, **Top-Economen** en **CDS / Buitenlands Kapitaal** — "
-    "strikte deduplicatie (**geen dubbele artikelen**), nieuwste nieuws bovenaan, en een **toekomstige 30-dagen Macro-Agenda**."
+    "Live scanner met **slimme prioriteits-sortering** (1. Schandalen & Marktschokken ➔ 2. Macro & BIST 100 ➔ 3. Aandelen ➔ 4. Globaal), "
+    "strikte deduplicatie, **Jip-en-Janneketaal samenvattingen** en een **toekomstige 30-dagen Macro-Agenda**."
 )
 
 # --- VOLLEDIGE LIJST VAN ALLE 100 UNIEKE BIST 100 AANDELEN ---
@@ -133,7 +133,7 @@ st.sidebar.text_input(
     value=st.session_state.gemini_auth,
     key="gemini_auth_input"
 )
-st.sidebar.success("✅ Strikte Deduplicatie & Master Filter actief!")
+st.sidebar.success("✅ Prioritized Master Hub actief!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader(f"🎯 BIST 100 Selectie ({len(BIST_100_STOCKS)} Aandelen + Index)")
@@ -356,6 +356,42 @@ def build_jip_en_janneke_analysis(title_tr, title_nl, desc_nl, category_tag, tic
 
     return jip_summary, econ_impact, card_class, badge_html, sector_str
 
+# --- SLIMME PRIORITEITS- EN SORTEER-ENGINE ---
+def calculate_article_priority_and_sort_key(item):
+    """
+    Bepaalt de prioriteit (1 = Hoogste prioriteit / Marktschokken & Schandalen, 
+    2 = Macro & BIST 100, 3 = Specifieke aandelen, 4 = Globaal / Edelmetalen).
+    Binnen dezelfde prioriteit wordt gesorteerd op datum (nieuwste bovenaan).
+    """
+    cat = item.get("category", "")
+    text = f"{item.get('title_tr', '')} {item.get('title_nl', '')} {item.get('desc_orig', '')}".lower()
+
+    # Prioriteit 1: Schandalen, SPK-operaties, arrestaties, Resmi Gazete
+    if any(k in cat for k in ["Fondsschandaal", "SPK Bulletin", "Politiek", "Resmi Gazete"]) or \
+       any(w in text for w in ["fon", "spk", "manipülasyon", "tutuklama", "gözaltı", "kayyum", "resmi gazete"]):
+        priority_level = 1
+        priority_label = "🔥 Prio 1: Schandaal & Markt-Impact"
+
+    # Prioriteit 2: Macro, TCMB, Rente, BIST 100 Brede Markt, Top-Economen, CDS
+    elif any(k in cat for k in ["BIST 100", "Top-Economen", "CDS-Premie"]) or \
+         any(w in text for w in ["tcmb", "merkez bankası", "faiz", "enflasyon", "mehmet şimşek", "bist 100"]):
+        priority_level = 2
+        priority_label = "📈 Prio 2: Macro & BIST 100"
+
+    # Prioriteit 3: Specifieke BIST aandelennieuws (KAP)
+    elif "Aandelennieuws" in cat:
+        priority_level = 3
+        priority_label = "🏢 Prio 3: Bedrijfsnieuws (KAP)"
+
+    # Prioriteit 4: Globaal, Geopolitiek, Goud & Zilver
+    else:
+        priority_level = 4
+        priority_label = "🌍 Prio 4: Globaal & Edelmetalen"
+
+    item["priority_level"] = priority_level
+    item["priority_label"] = priority_label
+    return priority_level
+
 # --- HULPFUNCTIES VOOR LIVE MARKTDATA & PARALLELLE RSS OPHAAL ---
 @st.cache_data(ttl=300, show_spinner=False)
 def get_live_market_snapshot():
@@ -474,29 +510,28 @@ def enrich_articles_with_dutch_summaries(items, tickers_clean):
         item["card_class"] = card_cls
         item["badge_html"] = badge_html
         item["sector_str"] = sector_str
+
+        # Bereken prioriteit
+        calculate_article_priority_and_sort_key(item)
         return item
 
     with ThreadPoolExecutor(max_workers=10) as ex:
         enriched = list(ex.map(process_one, items))
     return enriched
 
-# --- STRIKTE DEDUPLICATIE FUNCTIE (VERWIJDERST DUBBELE ARTIKELEN) ---
 def remove_duplicate_articles(enriched_list):
     unique_items = []
     seen_titles = set()
     seen_links = set()
 
     for item in enriched_list:
-        # Maak titel genormaliseerd (kleine letters, alle overbodige spaties en leestekens weg)
         norm_title = re.sub(r'[^a-z0-9]', '', item["title_orig"].lower())
-        norm_link = item["link"].split("?")[0].strip() # Haal Google tracking parameters weg uit URL
+        norm_link = item["link"].split("?")[0].strip()
 
         if norm_link in seen_links:
             continue
-        # Als de genormaliseerde titel te sterk lijkt op een reeds geziene titel, sla over
         is_dup = False
         for seen_t in seen_titles:
-            # Eenvoudige gelijkenischeck op basis van startkarakters
             if len(norm_title) > 10 and (norm_title[:25] == seen_t[:25] or norm_title in seen_t or seen_t in norm_title):
                 is_dup = True
                 break
@@ -508,7 +543,7 @@ def remove_duplicate_articles(enriched_list):
 
     return unique_items
 
-# --- AGENT 6: TOEKOMSTIGE 30-DAGEN MACRO AGENDA ---
+# --- AGENT 5: TOEKOMSTIGE 30-DAGEN MACRO AGENDA ---
 def get_upcoming_30_day_agenda():
     today = datetime.now(timezone.utc).date()
     end_date = today + timedelta(days=30)
@@ -636,18 +671,19 @@ for row_slice in [market_items[:4], market_items[4:8]]:
 st.markdown("---")
 
 # --- HOOFDPROGRAMMA ---
-st.markdown("### 🤖 Start de 6-Agent Master Scanner (Clean Deduplicated)")
+st.markdown("### 🤖 Start de Prioritized Master Scanner")
 st.markdown(
-    "Scant gelijktijdig het **SPK- & Fondsschandaal**, **Brüt Takas**, **Resmi Gazete**, "
-    "**Top-Economen**, **CDS & Buitenlands Kapitaal**, **Politiek** en alle gekozen **BIST 100-aandelen** — gegarandeerd zonder dubbele artikelen."
+    "Scant en sorteert al het **Turkse en internationale beursnieuws** op **prioriteit** "
+    "(1. Schandalen & Marktschokken ➔ 2. Macro & BIST 100 ➔ 3. Aandelen ➔ 4. Globaal) "
+    "en toont elk item met een Jip-en-Janneketaal duiding en bronlink."
 )
 
-if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
+if st.button("🚀 Start Volledige Prioritized Master Analyse", type="primary"):
     is_bist100_general = BIST_INDEX_OPTION in selected_tickers
     tickers_clean = [t.split(" ")[0] for t in selected_tickers if t != BIST_INDEX_OPTION]
     tickers_str = ", ".join(tickers_clean) if tickers_clean else "Alle BIST 100 Hoofdfondsen"
 
-    with st.spinner("📡 Parallel ophalen, ontdubbelen en vertalen van alle marktinformatie..."):
+    with st.spinner("📡 Parallel ophalen, ontdubbelen, prioriteren en vertalen van al het nieuws..."):
         rss_tasks = [
             (
                 "🚨 Fondsschandaal, SPK & Beurs-Operaties",
@@ -715,8 +751,7 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
         with ThreadPoolExecutor(max_workers=10) as executor:
             task_results = list(executor.map(fetch_single_rss_feed, rss_tasks))
 
-        raw_tr_items = []
-        raw_nl_items = []
+        raw_all_items = []
         seen_titles = set()
 
         for res_list in task_results:
@@ -725,21 +760,13 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
                 if norm_t in seen_titles:
                     continue
                 seen_titles.add(norm_t)
-                if item["lang"] == "tr":
-                    raw_tr_items.append(item)
-                else:
-                    raw_nl_items.append(item)
+                raw_all_items.append(item)
 
-        tr_enriched = enrich_articles_with_dutch_summaries(raw_tr_items, tickers_clean)
-        nl_enriched = enrich_articles_with_dutch_summaries(raw_nl_items, tickers_clean)
+        master_enriched = enrich_articles_with_dutch_summaries(raw_all_items, tickers_clean)
+        master_enriched = remove_duplicate_articles(master_enriched)
 
-        # TOEPASSEN STRIKTE DEDUPLICATIE (VERWIJDERST DUBBELE ARTIKELEN)
-        tr_enriched = remove_duplicate_articles(tr_enriched)
-        nl_enriched = remove_duplicate_articles(nl_enriched)
-
-        # SORTERING NIEUWS: NIEUWSTE BOVENAAN (AFLOPEND OP DATUM)
-        tr_enriched.sort(key=lambda x: x["datetime"], reverse=True)
-        nl_enriched.sort(key=lambda x: x["datetime"], reverse=True)
+        # SLIMME SORTERING: Eerst op Prioriteit (1 = hoogste impact), daarna op Datum (nieuwste bovenaan)
+        master_enriched.sort(key=lambda x: (x["priority_level"], -x["datetime"].timestamp()))
 
         upcoming_agenda = get_upcoming_30_day_agenda()
 
@@ -752,57 +779,65 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
         brent_p = market_data.get("Brent Olie ($)", {}).get("price") or 0.0
         vix_p = market_data.get("VIX (Angst)", {}).get("price") or 0.0
 
-        scandal_count = sum(
-            1 for x in tr_enriched
-            if any(k in x["category"] for k in ["Fondsschandaal", "Politiek", "SPK Bulletin"])
-        )
+        scandal_count = sum(1 for x in master_enriched if x["priority_level"] == 1)
 
     st.success(
-        f"✅ Analyse voltooid! **{len(tr_enriched)} unieke Turkse artikelen** (volledig ontdubbeld, nieuwste bovenaan), "
-        f"**{len(nl_enriched)} unieke internationale artikelen** en **{len(upcoming_agenda)} toekomstige macro-agendapunten** geladen."
+        f"✅ Analyse voltooid! **{len(master_enriched)} unieke master artikelen** (gesorteerd op prioriteit: Schandalen/Marktschokken bovenaan) "
+        f"en **{len(upcoming_agenda)} toekomstige macro-agendapunten** geladen."
     )
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        f"🇹🇷 Agent 1: BIST, Schandalen & Uniek Nieuws ({len(tr_enriched)})",
-        f"🌍 Agent 2: Globaal & Edelmetalen ({len(nl_enriched)})",
-        "🕵️‍♂️ Agent 3: Fact-Check",
-        "💡 Agent 4: Beleggingsadvies",
-        "⚖️ Agent 5: Risico-Audit",
-        f"📅 Agent 6: Komende 30-Dagen Agenda ({len(upcoming_agenda)})"
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        f"🌐 Agent 1: Prioritized Master News Hub ({len(master_enriched)})",
+        "🕵️‍♂️ Agent 2: Fact-Check",
+        "💡 Agent 3: Beleggingsadvies",
+        "⚖️ Agent 4: Risico-Audit",
+        f"📅 Agent 5: Komende 30-Dagen Agenda ({len(upcoming_agenda)})"
     ])
 
     # ==========================================================================
-    # TAB 1: AGENT 1 — UNIEKE ARTIKELEN (GEEN DUPLICATEN)
+    # TAB 1: AGENT 1 — PRIORITIZED MASTER NEWS HUB
     # ==========================================================================
     with tab1:
-        st.markdown("### 🇹🇷 Agent 1: BIST 100, Fondsschandalen, Resmi Gazete & Uniek Nieuws")
+        st.markdown("### 🌐 Agent 1: Prioritized Master News Hub (Scherpste Impact Bovenaan)")
         st.markdown(
-            f"**Deduplicatie Actief:** Alle dubbele artikelen zijn automatisch samengevoegd/verwijderd | "
-            f"**Volgorde:** 🕒 **Nieuwste nieuws bovenaan (aflopend op datum)** | "
+            f"**Prioriteits-Sortering:** 1️⃣ Schandalen & Marktschokken ➔ 2️⃣ Macro & BIST 100 ➔ 3️⃣ Aandelen ➔ 4️⃣ Globaal | "
+            f"**Deduplicatie Actief:** Geen dubbele artikelen | "
             f"**Actieve Focus:** {'📈 **BIST 100 Index (Algemeen)** + ' if is_bist100_general else ''}`{tickers_str}`"
         )
 
-        available_cats = ["Alle Categorieën"] + sorted(list({x["category"] for x in tr_enriched}))
-        chosen_cat = st.selectbox("🔍 Filter op specifiek thema (of bekijk alles):", available_cats, index=0)
-
-        filtered_tr = tr_enriched if chosen_cat == "Alle Categorieën" else [x for x in tr_enriched if x["category"] == chosen_cat]
-
-        st.info(
-            f"**📌 Hoofdlijnen BIST 100 & Turkse Markt (Jip-en-Janneketaal):**\n"
-            f"- **Beurs & Valuta:** De **BIST 100** staat op **{bist_p:,.0f} punten ({bist_c:+.2f}%)** en **USD/TRY** noteert **₺{usd_p:,.2f}**.\n"
-            f"- **Unieke Artikelen:** Elk relevant economisch, politiek of schandaal-bericht wordt hieronder **exact één keer** weergegeven met een Jip-en-Janneketaal samenvatting en bronlink."
+        prio_filter = st.selectbox(
+            "🔍 Filter op prioriteit / categorie:",
+            ["Alle Artikelen (Volgens Prioriteit)", "🔥 Prio 1: Schandalen & Marktschokken", "📈 Prio 2: Macro & BIST 100", "🏢 Prio 3: Bedrijfsnieuws (KAP)", "🌍 Prio 4: Globaal & Edelmetalen"],
+            index=0
         )
 
-        if filtered_tr:
-            for idx, item in enumerate(filtered_tr, 1):
+        if prio_filter == "🔥 Prio 1: Schandalen & Marktschokken":
+            filtered_master = [x for x in master_enriched if x["priority_level"] == 1]
+        elif prio_filter == "📈 Prio 2: Macro & BIST 100":
+            filtered_master = [x for x in master_enriched if x["priority_level"] == 2]
+        elif prio_filter == "🏢 Prio 3: Bedrijfsnieuws (KAP)":
+            filtered_master = [x for x in master_enriched if x["priority_level"] == 3]
+        elif prio_filter == "🌍 Prio 4: Globaal & Edelmetalen":
+            filtered_master = [x for x in master_enriched if x["priority_level"] == 4]
+        else:
+            filtered_master = master_enriched
+
+        st.info(
+            f"**📌 Hoofdlijnen Markt & Macro (Jip-en-Janneketaal):**\n"
+            f"- **Beurs & Valuta:** BIST 100 op **{bist_p:,.0f} ({bist_c:+.2f}%)** | USD/TRY: **₺{usd_p:,.2f}** | Gram Goud: **₺{gram_p:,.2f}**.\n"
+            f"- **Prioriteitssysteem:** Het belangrijkste nieuws (zoals SPK-ingrepen en marktschokken) staat altijd keurig **bovenaan**."
+        )
+
+        if filtered_master:
+            for idx, item in enumerate(filtered_master, 1):
                 st.markdown(
                     f"""<div class="{item['card_class']}">
                         <div style="margin-bottom: 6px;">
-                            {item['badge_html']} &nbsp; <strong>#{idx} | 🕒 {item['date_str']} | {item['category']} | Bron: {item['source']}</strong>
+                            <span class="prio-pill">{item['priority_label']}</span> &nbsp; {item['badge_html']} &nbsp; <strong>#{idx} | 🕒 {item['date_str']} | Bron: {item['source']}</strong>
                         </div>
                         <span style="font-size: 17px; font-weight: bold; color: #0f172a;">{item['title_nl']}</span><br>
                         <span style="font-size: 12px; color: #64748b;">Originele kop: {item['title_orig']}</span><br>
-                        <span style="font-size: 13px; color: #1e3a8a; font-weight: 600;">🎯 Geraakte BIST-Sectoren: {item['sector_str']}</span>
+                        <span style="font-size: 13px; color: #1e3a8a; font-weight: 600;">🎯 Geraakte Sectoren / Markten: {item['sector_str']}</span>
                         <hr style="margin: 8px 0; border: 0; border-top: 1px solid #cbd5e1;">
                         <p style="margin-bottom: 6px;">🗣️ {item['jip_summary']}</p>
                         <p style="margin-bottom: 8px;">📊 {item['econ_impact']}</p>
@@ -811,76 +846,47 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
                     unsafe_allow_html=True
                 )
         else:
-            st.warning("Geen unieke artikelen gevonden voor dit filter.")
+            st.warning("Geen artikelen gevonden voor dit prioriteitenfilter.")
 
     # ==========================================================================
-    # TAB 2: AGENT 2 — GLOBAAL & EDELMETALEN (GEEN DUPLICATEN)
+    # TAB 2: AGENT 2 — WAARHEIDS-FILTER & FACT-CHECK
     # ==========================================================================
     with tab2:
-        st.markdown("### 🌍 Agent 2: Wereldnieuws, Geopolitiek, Goud & Zilver (Uniek & Nieuwste Bovenaan)")
-        st.info(
-            f"**📌 Samenvatting Edelmetalen & Wereldmarkt (Jip-en-Janneketaal):**\n"
-            f"- **Goud & Zilver:** Goud staat op **${gold_p:,.2f}** per troy ounce (**₺{gram_p:,.2f} per gram** in Turkse Lira) en Zilver staat op **${silv_p:,.2f}**.\n"
-            f"- **Olie & Geopolitiek:** Brent Olie noteert **${brent_p:,.2f}** en de VIX-angstindex staat op **{vix_p:,.2f}**."
+        st.markdown("### 🕵️‍♂️ Agent 2: De Waarheids-Filter & Prioriteits-Check")
+        st.markdown(
+            f"- ✅ **Prioriteitssysteem Actief:** Artikelen zijn automatisch ingedeeld in 4 prioriteitslagen, met marktschokken en schandalen op #1.\n"
+            f"- ✅ **Koersdata Verificatie:** Alle live koersen (BIST 100: `{bist_p:,.0f}`, USD/TRY: `₺{usd_p:,.2f}`, Goud: `${gold_p:,.2f}`) zijn geverifieerd via Yahoo Finance.\n"
+            f"- ✅ **Deduplicatie & Datum:** Geen dubbele artikelen; binnen elke prioriteitslaag staat het nieuwste nieuws bovenaan."
         )
 
-        if nl_enriched:
-            for idx, item in enumerate(nl_enriched, 1):
-                st.markdown(
-                    f"""<div class="news-card">
-                        <div style="margin-bottom: 6px;">
-                            {item['badge_html']} &nbsp; <strong>#{idx} | 🕒 {item['date_str']} | {item['category']} | Bron: {item['source']}</strong>
-                        </div>
-                        <span style="font-size: 17px; font-weight: bold; color: #0f172a;">{item['title_nl']}</span>
-                        <hr style="margin: 8px 0; border: 0; border-top: 1px solid #cbd5e1;">
-                        <p style="margin-bottom: 6px;">🗣️ {item['jip_summary']}</p>
-                        <p style="margin-bottom: 8px;">📊 {item['econ_impact']}</p>
-                        🔗 <a href="{item['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8;">Klik hier om het volledige artikel te lezen ({item['source']})</a>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
-        else:
-            st.info("Geen recente unieke internationale artikelen gevonden.")
-
     # ==========================================================================
-    # TAB 3: AGENT 3 — WAARHEIDS-FILTER & FACT-CHECK
+    # TAB 3: AGENT 3 — CONCREET BELEGGINGSADVIES
     # ==========================================================================
     with tab3:
-        st.markdown("### 🕵️‍♂️ Agent 3: De Waarheids-Filter & Deduplicatie Check")
+        st.markdown("### 💡 Agent 3: Concreet Beleggingsadvies in Jip-en-Janneketaal")
         st.markdown(
-            f"- ✅ **Deduplicatie Actief:** Dubbele Google News vermeldingen zijn succesvol gefilterd; elk uniek artikel staat exact één keer in de lijst.\n"
-            f"- ✅ **Koersdata Verificatie:** Alle live koersen (BIST 100: `{bist_p:,.0f}`, USD/TRY: `₺{usd_p:,.2f}`, Goud: `${gold_p:,.2f}`) zijn rechtstreeks geverifieerd via Yahoo Finance.\n"
-            f"- ✅ **Datum-Volgorde:** Nieuws in Agent 1 en Agent 2 staat **aflopend (nieuwste bovenaan)**; de agenda in Agent 6 staat **oplopend**."
+            f"#### 1. Handelen op basis van prioriteit\n"
+            f"- Begin je dag altijd bovenaan in de Master Hub bij **Prio 1 (Schandalen & Marktschokken)**. Als daar SPK-ingrepen of arrestaties staan, weet je direct welke fondsen onder druk staan.\n"
+            f"- Richt je voor de lange termijn op sterke **BIST 100-zwaargewichten** en houd **Gram Goud** aan als buffer."
         )
 
     # ==========================================================================
-    # TAB 4: AGENT 4 — CONCREET BELEGGINGSADVIES
+    # TAB 4: AGENT 4 — EINDCONTROLE & RISICO-AUDIT
     # ==========================================================================
     with tab4:
-        st.markdown("### 💡 Agent 4: Concreet Beleggingsadvies in Jip-en-Janneketaal")
-        st.markdown(
-            f"#### 1. Schoon en overzichtelijk handelen zonder dubbele ruis\n"
-            f"- Omdat alle dubbele berichten zijn gefilterd, zie je nu in één oogopslag alle unieke feiten, SPK-maatregelen, Resmi Gazete besluiten en aandelennieuws.\n"
-            f"- Blijf scherp op speculatieve fondsen met handelsverboden en geef de voorkeur aan sterke **BIST 100-zwaargewichten** en **Gram Goud** als buffer."
-        )
-
-    # ==========================================================================
-    # TAB 5: AGENT 5 — EINDCONTROLE & RISICO-AUDIT
-    # ==========================================================================
-    with tab5:
-        st.markdown("### ⚖️ Agent 5: Eindcontrole & Risico-Audit")
+        st.markdown("### ⚖️ Agent 4: Eindcontrole & Risico-Audit")
         st.warning(
             f"**Belangrijkste Risico's:**\n"
-            f"1. **Schandaal- en Toezichtrisico (`{scandal_count}` unieke meldingen):** Vervolgstappen in het fondsschandaal kunnen kleinere aandelen raken.\n"
+            f"1. **Schandaal- en Toezichtrisico (`{scandal_count}` Prio-1 meldingen):** Vervolgstappen in het fondsschandaal.\n"
             f"2. **Valutarisico:** USD/TRY noteert **₺{usd_p:,.2f}**.\n"
             f"3. **Geopolitiek:** VIX op **{vix_p:,.2f}**."
         )
 
     # ==========================================================================
-    # TAB 6: AGENT 6 — KOMENDE 30-DAGEN MACRO-AGENDA
+    # TAB 5: AGENT 5 — KOMENDE 30-DAGEN MACRO-AGENDA
     # ==========================================================================
-    with tab6:
-        st.markdown("### 📅 Agent 6: Toekomstige 30-Dagen Macro-Agenda (Oplopend)")
+    with tab5:
+        st.markdown("### 📅 Agent 5: Toekomstige 30-Dagen Macro-Agenda (Oplopend)")
         st.markdown(
             "Hieronder staan **uitsluitend de aankomende gebeurtenissen van de komende 30 dagen**, "
             "**oplopend gesorteerd op datum** (wat het eerst plaatsvindt staat bovenaan)."
@@ -905,4 +911,4 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
             st.info("Geen geplande macro-evenementen gevonden binnen de komende 30 dagen.")
 
 else:
-    st.info("👈 Kies in de zijbalk de **BIST 100 Index** en/of je gewenste aandelen uit de lijst van 100 en klik op **Start Volledige 6-Agent Master Analyse**!")
+    st.info("👈 Kies in de zijbalk de **BIST 100 Index** en/of je gewenste aandelen uit de lijst van 100 en klik op **Start Volledige Prioritized Master Analyse**!")
