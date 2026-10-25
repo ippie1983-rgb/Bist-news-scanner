@@ -784,7 +784,7 @@ def calculate_article_priority_and_sort_key(item):
     return priority_level
 
 # ==============================================================================
-# RSS HARVESTING FUNCTIES (EXPLICIET GEÏMPORTEERD EN DEFINITIEF GECONTROLEERD)
+# RSS HARVESTING FUNCTIES
 # ==============================================================================
 def fetch_google_rss_feed(args):
     category_label, query, lang, max_items, max_days, extra_tickers, custom_kw = args
