@@ -25,7 +25,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 6-Agent Nieuwsscanner</p>', unsafe_allow_html=True)
-st.markdown("Live nieuws, **artikel-samenvattingen per bronlink** (max 3 dagen oud) en een **toekomstige 30-dagen Macro-Agenda**.")
+st.markdown("Live nieuws, **artikel-samenvattingen per bronlink** (max 3 dagen oud) en een **toekomstige 30-dagen Macro-Agenda (oplopend)**.")
 
 # --- ZIJBALK: INSTELLINGEN ---
 if "gemini_auth" not in st.session_state:
@@ -209,13 +209,13 @@ def call_gemini_with_fallback(prompt_text, system_instruction, fallback_text):
 
 # --- HOOFDPROGRAMMA ---
 st.markdown("### 🤖 Start de 6-Agent Top-Media Scanner")
-st.markdown("Druk op de knop om de analyse te starten met artikel-samenvattingen per bronlink.")
+st.markdown("Druk op de knop om de analyse te starten met gedetailleerde samenvattingen per bronlink.")
 
 if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     tickers_clean = [t.split(" ")[0] for t in selected_tickers] if selected_tickers else ["THYAO", "ASELS", "KCHOL"]
     tickers_str = ", ".join(tickers_clean)
 
-    with st.spinner("📡 Live ophalen van artikelen en marktomstandigheden..."):
+    with st.spinner("📡 Live ophalen van artikelen en marktomstandigheden (max 3 dagen)..."):
         stock_snaps = get_stock_snapshots(tickers_clean)
         
         tr_econ_items = fetch_news_strict("Turkiye ekonomi Borsa Istanbul TCMB", "tr", 10, max_days=3)
@@ -243,20 +243,25 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     for c in tickers_clean:
         all_tr_items.extend(stock_news_dict.get(c, []))
 
-    # --- AGENT 1: Samenvatting per artikel met behoud van links ---
-    with st.spinner("🇹🇷 Agent 1: Artikel-samenvattingen genereren..."):
-        titles_and_links_block = "\n".join([f"- Titel: {item['title']} | Link: {item['link']}" for item in all_tr_items]) if all_tr_items else "Geen artikelen."
+    # --- AGENT 1: Strenge instructie voor samenvatting per artikel met bronlink ---
+    with st.spinner("🇹🇷 Agent 1: Artikel-samenvattingen per bronlink genereren..."):
+        # We geven elk artikel voorzien van zijn URL mee aan Agent 1
+        articles_formatted = "\n".join([f"ARTIKEL:\n- Titel: {item['title']}\n- Link: {item['link']}\n- Datum: {item['date']}\n" for item in all_tr_items]) if all_tr_items else "Geen artikelen."
         
         fallback_agent1 = f"### 🇹🇷 Turkije & BIST Overzicht\n\n- **BIST 100:** {bist_p:,.0f} | **USD/TRY:** ₺{usd_p:,.2f}"
         prompt_agent1 = (
             "Jij bent Agent 1: BIST & Nieuws Intelligence Agent.\n"
-            "Hier is een lijst met recente artikelen (koppen en links) van de afgelopen 3 dagen uit de Turkse media:\n"
-            f"{titles_and_links_block}\n\n"
-            "OPDRACHT:\n"
-            "Ga al deze artikelen langs. Schrijf per artikel een duidelijke, krachtige samenvatting in Jip-en-Janneketaal over wat dit betekent voor de belegger.\n"
-            "Zorg ervoor dat je onder elke samenvatting exact de bijbehorende bronlink plaatst."
+            "Hieronder staat een lijst met recente artikelen van de afgelopen 3 dagen uit de Turkse media:\n\n"
+            f"{articles_formatted}\n\n"
+            "STRENGE OPDRACHT:\n"
+            "Je moet ELK artikel hierboven stuk voor stuk langslopen. Sla er geen één over.\n"
+            "Geef per artikel exact de volgende structuur weer:\n"
+            "1. **Onderwerp / Titel van het artikel**\n"
+            "2. **Jip-en-Janneketaal Samenvatting:** Wat staat er in het artikel en wat betekent dit economisch voor de belegger?\n"
+            "3. **Bronlink:** Zet exact de URL-link neer die hierboven bij dat artikel hoort in de vorm van een Markdown link (bijv. [Klik hier om het artikel te lezen](URL)).\n\n"
+            "Houd dit strak per artikel aangehouden, zodat de gebruiker direct de samenvatting kan lezen en kan doorklikken naar de bron."
         )
-        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een Turkse marktexpert.", fallback_agent1)
+        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een Turkse marktexpert die elk artikel helder samenvat met behoud van de bronlink.", fallback_agent1)
 
     # --- AGENT 2 ---
     with st.spinner("🌍 Agent 2: Globaal & Edelmetalen..."):
@@ -284,18 +289,20 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
 
     # --- AGENT 6: Toekomstige 30-Dagen Macro Agenda (Oplopend) ---
     with st.spinner("📅 Agent 6: Toekomstige 30-Dagen Macro Agenda genereren..."):
-        agenda_titles = "\n".join([f"- [{item['date']}] {item['title']} | Link: {item['link']}" for item in agenda_items]) if agenda_items else "Geen agenda-items."
+        agenda_formatted = "\n".join([f"- Datum: {item['date']} | Titel: {item['title']} | Link: {item['link']}" for item in agenda_items]) if agenda_items else "Geen agenda-items."
         fallback_agent6 = "### 📅 Toekomstige 30-Dagen Macro Agenda\n\nGeplande publicaties en besluiten."
         prompt_agent6 = (
             "Jij bent Agent 6: De Toekomstige Macro-Agenda Samenvatter.\n"
-            "Hier zijn de chronologisch gesorteerde koppen en links van de komende agenda-artikelen:\n"
-            f"{agenda_titles}\n\n"
-            "Lees deze koppen en zet ze om in een helder, oplopend overzicht per gebeurtenis in normale mensentaal (Jip-en-Janneketaal), inclusief de bijbehorende links."
+            "Hier zijn de chronologisch gesorteerde komende agenda-artikelen:\n"
+            f"{agenda_formatted}\n\n"
+            "OPDRACHT:\n"
+            "Zet deze toekomstige agenda-items om in een helder, oplopend overzicht in normale mensentaal (Jip-en-Janneketaal). "
+            "Vermeld bij elk item de datum, een korte uitleg van wat er gaat gebeuren, en de bijbehorende bronlink."
         )
         agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent een macro-economisch analist en agenda-expert.", fallback_agent6)
 
     # --- TOON RESULTATEN IN TABS ---
-    st.success("✅ Analyse succesvol afgerond!")
+    st.success("✅ Analyse met artikel-samenvattingen per bronlink succesvol afgerond!")
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🇹🇷 Agent 1: BIST",
