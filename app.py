@@ -7,7 +7,7 @@ import numpy as np
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 # Pagina configuratie
 st.set_page_config(
@@ -25,7 +25,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 6-Agent Nieuwsscanner</p>', unsafe_allow_html=True)
-st.markdown("Live nieuws-, politiek-, oorlogs-, analistenscanner (max 3 dagen oud) en een uitgebreide **30-dagen Macro-Agenda**.")
+st.markdown("Live nieuws-, politiek-, oorlogs-, analistenscanner (max 3 dagen oud) en een **toekomstige 30-dagen Macro-Agenda (oplopend gesorteerd)**.")
 
 # --- ZIJBALK: INSTELLINGEN ---
 if "gemini_auth" not in st.session_state:
@@ -39,7 +39,7 @@ st.session_state.gemini_auth = st.sidebar.text_input(
     value=st.session_state.gemini_auth,
     help="Staat standaard ingesteld."
 )
-st.sidebar.success("✅ 30-Dagen Agenda & 6-Agent Engine actief!")
+st.sidebar.success("✅ Toekomstige 30-Dagen Agenda & 6-Agent Engine actief!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Aandelen Selectie (Agent 1)")
@@ -120,7 +120,7 @@ def get_stock_snapshots(tickers_clean):
             snapshots[code] = {"price": None, "change": 0.0, "rsi": 50.0, "trend": "Onbekend"}
     return snapshots
 
-def fetch_rss_with_days_limit(query, lang="tr", max_items=6, max_days=3):
+def fetch_news_strict(query, lang="tr", max_items=6, min_days=None, max_days=None):
     q_enc = urllib.parse.quote(query)
     if lang == "tr":
         url = f"https://news.google.com/rss/search?q={q_enc}&hl=tr&gl=TR&ceid=TR:tr"
@@ -139,22 +139,31 @@ def fetch_rss_with_days_limit(query, lang="tr", max_items=6, max_days=3):
             pub_str = item.findtext("pubDate") or ""
             
             if title and link:
-                is_valid = True
+                dt = None
                 if pub_str:
                     try:
                         from email.utils import parsedate_to_datetime
                         dt = parsedate_to_datetime(pub_str)
-                        if dt:
-                            diff_days = (now_utc - dt).total_seconds() / 86400.0
-                            if diff_days > max_days:
-                                is_valid = False
                     except Exception:
                         pass
                 
-                if is_valid:
-                    items.append({"title": title, "link": link, "date": pub_str[:16]})
-                    if len(items) >= max_items:
-                        break
+                if dt:
+                    diff_days = (now_utc - dt).total_seconds() / 86400.0
+                    # Als er een maximum is (bijv. max 3 dagen oud)
+                    if max_days is not None and diff_days > max_days:
+                        continue
+                    # Als er een minimum is (bijv. toekomstige of vanaf nu / komende 30 dagen)
+                    if min_days is not None and diff_days < min_days:
+                        continue
+                
+                items.append({
+                    "title": title, 
+                    "link": link, 
+                    "date": pub_str[:16],
+                    "datetime": dt if dt else now_utc
+                })
+                if len(items) >= max_items:
+                    break
     except Exception:
         pass
     return items
@@ -201,25 +210,28 @@ def call_gemini_with_fallback(prompt_text, system_instruction, fallback_text):
     return fallback_text
 
 # --- HOOFDPROGRAMMA ---
-st.markdown("### 🤖 Start de 6-Agent Scanner (Nieuws: 3 dagen | Agenda: 30 dagen)")
-st.markdown("Druk op de knop om de analyses en de 30-dagen macro-agenda te genereren.")
+st.markdown("### 🤖 Start de 6-Agent Scanner (Nieuws: max 3 dagen | Agenda: komende 30 dagen oplopend)")
+st.markdown("Druk op de knop om de analyses en de toekomstige, chronologisch gesorteerde macro-agenda te genereren.")
 
-if st.button("🚀 Start 6-Agent Analyse & 30-Dagen Agenda", type="primary"):
+if st.button("🚀 Start 6-Agent Analyse & Toekomstige Agenda", type="primary"):
     tickers_clean = [t.split(" ")[0] for t in selected_tickers] if selected_tickers else ["THYAO", "ASELS", "KCHOL"]
     tickers_str = ", ".join(tickers_clean)
 
-    with st.spinner("📡 Live ophalen van nieuws (3 dagen) en agenda (30 dagen)..."):
+    with st.spinner("📡 Live ophalen van nieuws (max 3 dagen) en toekomstige agenda (komende 30 dagen)..."):
         stock_snaps = get_stock_snapshots(tickers_clean)
         
-        # Agents 1 t/m 5: Strikt 3 dagen oud nieuws
-        tr_econ_items = fetch_rss_with_days_limit("Turkiye ekonomi Borsa Istanbul TCMB", "tr", 5, 3)
-        tr_spk_items = fetch_rss_with_days_limit("SPK ceza sorusturma borsa operasyon", "tr", 4, 3)
-        stock_news_dict = {c: fetch_rss_with_days_limit(f"{c} hisse KAP", "tr", 3, 3) for c in tickers_clean}
-        nl_war_items = fetch_rss_with_days_limit("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 5, 3)
-        nl_gold_items = fetch_rss_with_days_limit("goudprijs zilverprijs Fed rente", "nl", 5, 3)
+        # Agents 1 t/m 5: Strikt nieuws van maximaal 3 dagen oud
+        tr_econ_items = fetch_news_strict("Turkiye ekonomi Borsa Istanbul TCMB", "tr", 5, max_days=3)
+        tr_spk_items = fetch_news_strict("SPK ceza sorusturma borsa operasyon", "tr", 4, max_days=3)
+        stock_news_dict = {c: fetch_news_strict(f"{c} hisse KAP", "tr", 3, max_days=3) for c in tickers_clean}
+        nl_war_items = fetch_news_strict("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 5, max_days=3)
+        nl_gold_items = fetch_news_strict("goudprijs zilverprijs Fed rente", "nl", 5, max_days=3)
         
-        # Agent 6: Ruimere horizon van 30 dagen voor de macro-agenda
-        agenda_items = fetch_rss_with_days_limit("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon", "tr", 8, 30)
+        # Agent 6: Toekomstige agenda (komende 30 dagen)
+        agenda_items = fetch_news_strict("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon", "tr", 8, max_days=None)
+        
+        # Sorteer de agenda items netjes oplopend op datum (chronologisch: oudste van de komende lijst eerst, dan verder vooruit)
+        agenda_items = sorted(agenda_items, key=lambda x: x["datetime"])
 
         bist_p = market_data.get("BIST 100", {}).get("price") or 0.0
         bist_c = market_data.get("BIST 100", {}).get("change") or 0.0
@@ -259,26 +271,26 @@ if st.button("🚀 Start 6-Agent Analyse & 30-Dagen Agenda", type="primary"):
         prompt_agent5 = "Jij bent Agent 5. Voer risico-audit uit."
         agent5_output = call_gemini_with_fallback(prompt_agent5, "Je bent risicocontroleur.", fallback_agent5)
 
-    # --- AGENT 6: 30-Dagen Macro Agenda & Samenvatting ---
-    with st.spinner("📅 Agent 6: 30-Dagen Macro Agenda genereren..."):
-        agenda_titles = "\n".join([f"- {item['title']}" for item in agenda_items]) if agenda_items else "Geen specifieke agenda-items gevonden."
+    # --- AGENT 6: Toekomstige 30-Dagen Macro Agenda (Oplopend) ---
+    with st.spinner("📅 Agent 6: Toekomstige 30-Dagen Macro Agenda genereren..."):
+        agenda_titles = "\n".join([f"- [{item['date']}] {item['title']}" for item in agenda_items]) if agenda_items else "Geen specifieke agenda-items gevonden."
         fallback_agent6 = (
-            f"### 📅 30-Dagen Macro Agenda & Belangrijke Gebeurtenissen (Samenvatting)\n\n"
-            f"Op basis van de agenda-items van de afgelopen en aankomende 30 dagen zijn dit de cruciale momenten voor de markt:\n"
-            f"- **Rente- en Beleidsvergaderingen (Fed & TCMB):** Bepalend voor de richting van de Turkse Lira en de internationale goudprijs.\n"
-            f"- **Inflatiepublicaties:** Cruciaal voor het meten van de reële rendementen op de beurs van Istanbul."
+            f"### 📅 Toekomstige 30-Dagen Macro Agenda (Komende Gebeurtenissen)\n\n"
+            f"Dit zijn de geplande en verwachte publicaties voor de komende tijd:\n"
+            f"- **Aankomende Rente- en Beleidsbesluiten (Fed & TCMB):** Bepalend voor de richting van de Turkse Lira en de internationale goudprijs.\n"
+            f"- **Komende Inflatiepublicaties:** Cruciaal voor het meten van de reële rendementen op de beurs van Istanbul."
         )
         prompt_agent6 = (
-            "Jij bent Agent 6: De 30-Dagen Macro-Agenda Samenvatter.\n"
-            "Hier zijn de koppen van de agenda- en beleidsartikelen van de afgelopen en komende 30 dagen:\n"
+            "Jij bent Agent 6: De Toekomstige Macro-Agenda Samenvatter.\n"
+            "Hier zijn de chronologisch gesorteerde koppen van de komende agenda- en beleidsartikelen:\n"
             f"{agenda_titles}\n\n"
-            "Lees deze koppen en vat ze samen in heldere, normale mensentaal (Jip-en-Janneketaal). "
-            "Maak een duidelijk overzicht van wat de belangrijkste aankomende gebeurtenissen zijn voor beleggers in BIST en edelmetalen."
+            "Lees deze koppen en zet ze om in een helder, oplopend overzicht in normale mensentaal (Jip-en-Janneketaal). "
+            "Vertel wat dit betekent voor de belegger en welke datums in de nabije toekomst cruciaal zijn."
         )
         agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent een macro-economisch analist en agenda-expert.", fallback_agent6)
 
     # --- TOON RESULTATEN IN TABS ---
-    st.success("✅ Analyse voltooid! Nieuws (max 3 dagen) en 30-Dagen Agenda succesvol geladen.")
+    st.success("✅ Analyse voltooid! Nieuws (max 3 dagen) en Toekomstige 30-Dagen Agenda succesvol geladen.")
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🇹🇷 Agent 1: BIST",
@@ -286,7 +298,7 @@ if st.button("🚀 Start 6-Agent Analyse & 30-Dagen Agenda", type="primary"):
         "🕵️‍♂️ Agent 3: Fact-Check",
         "💡 Agent 4: Advies",
         "⚖️ Agent 5: Auditing",
-        "📅 Agent 6: 30-D AGENDA"
+        "📅 Agent 6: TOEKOMSTIGE AGENDA"
     ])
 
     with tab1:
@@ -327,15 +339,15 @@ if st.button("🚀 Start 6-Agent Analyse & 30-Dagen Agenda", type="primary"):
         st.markdown(agent5_output)
 
     with tab6:
-        st.markdown("### Agent 6: 30-Dagen Macro Agenda & Samenvatting")
+        st.markdown("### Agent 6: Toekomstige 30-Dagen Macro Agenda & Samenvatting")
         st.markdown(agent6_output)
         st.markdown("---")
-        st.markdown("#### 🔗 Relevante Agenda-Artikelen (Afgelopen & Komende 30 Dagen)")
+        st.markdown("#### 🔗 Toekomstige Agenda-Artikelen (Oplopend op Datum)")
         if agenda_items:
             for item in agenda_items:
-                st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
+                st.markdown(f"- **[{item['date']}]** [{item['title']}]({item['link']})")
         else:
-            st.info("Geen agenda-artikelen gevonden binnen de 30-dagen horizon.")
+            st.info("Geen toekomstige agenda-artikelen gevonden.")
 
 else:
-    st.info("👈 Kies je aandelen in de zijbalk en klik op de knop om de analyse te starten!")
+    st.info("👈 Kies je aandelen in je zijbalk en klik op de knop om de analyse te starten!")
