@@ -128,7 +128,6 @@ BIST_100_STOCKS = [
 
 ALL_SIDEBAR_OPTIONS = [BIST_INDEX_OPTION] + BIST_100_STOCKS
 
-# Automatische koppeling van bedrijfsnamen naar BIST-ticker
 COMPANY_TO_TICKER_MAP = {
     "türk hava yolları": "THYAO", "turkish airlines": "THYAO",
     "aselsan": "ASELS", "koç holding": "KCHOL", "koc holding": "KCHOL",
@@ -154,7 +153,6 @@ COMPANY_TO_TICKER_MAP = {
     "tab gıda": "TABGD", "türkiye sigorta": "TURSG", "katılımevim": "KTLEV"
 }
 
-# Rechtstreekse RSS-feeds van grote Turkse media voor laatste-minuut snelheid
 DIRECT_TURKISH_RSS_FEEDS = [
     ("📰 Bloomberg HT (Direct)", "https://www.bloomberght.com/rss"),
     ("📰 Habertürk Ekonomi (Direct)", "https://www.haberturk.com/rss/ekonomi.xml"),
@@ -309,7 +307,7 @@ def clean_html_text(raw_html):
     return clean
 
 # ==============================================================================
-# LIVE MARKTDATA & TECHNISCHE AANDELEN-INDICATOREN (KOERS, RSI, STEUN/WEERSTAND)
+# LIVE MARKTDATA & TECHNISCHE AANDELEN-INDICATOREN
 # ==============================================================================
 @st.cache_data(ttl=300, show_spinner=False)
 def get_live_market_snapshot():
@@ -852,7 +850,29 @@ def calculate_article_priority_and_sort_key(item):
 # ==============================================================================
 # HOOFDPROGRAMMA
 # ==============================================================================
-if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koers-Chips)", type="primary"):
+# --- LIVE MARKT TICKER BAR ---
+st.markdown("### 📊 Live Marktoverzicht (BIST 100, Valuta & Edelmetalen in $ en ₺)")
+market_data = get_live_market_snapshot()
+market_items = list(market_data.items())
+
+for row_slice in [market_items[:5], market_items[5:10]]:
+    cols = st.columns(len(row_slice))
+    for i, (name, info) in enumerate(row_slice):
+        with cols[i]:
+            if info["price"] is not None:
+                st.metric(label=name, value=f"{info['price']:,.2f}", delta=f"{info['change']:+.2f}%")
+            else:
+                st.metric(label=name, value="N/B")
+
+st.markdown("---")
+
+st.markdown("### 🤖 Start de Ultimate Master Scanner")
+st.markdown(
+    "Scant en sorteert al het **Turkse en internationale beursnieuws** op **prioriteit** "
+    "met **inhoudelijke ontdubbeling** (geen dubbele artikelen)."
+)
+
+if st.button("🚀 Start Volledige Master Analyse", type="primary"):
     is_bist100_general = BIST_INDEX_OPTION in selected_tickers
     tickers_clean = [t.split(" ")[0] for t in selected_tickers if t != BIST_INDEX_OPTION]
     all_bist_codes = [t.split(" ")[0] for t in BIST_100_STOCKS]
@@ -994,7 +1014,7 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
     ])
 
     # ==========================================================================
-    # TAB 1: AGENT 1 — MASTER NEWS HUB MET LIVE KOERS-CHIPS & BRON-SAMENVOEGING
+    # TAB 1: AGENT 1 — MASTER NEWS HUB
     # ==========================================================================
     with tab1:
         st.markdown("### 🌐 Agent 1: Master News Hub (Met Live Aandelen-Chips & Inhoudelijke Ontdubbeling)")
@@ -1159,7 +1179,7 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
     # TAB 5: AGENT 5 — KOMENDE 30-DAGEN MACRO-AGENDA
     # ==========================================================================
     with tab5:
-        st.markdown("### 📅 Agent 5: Toekomstige 30-Dagen Macro-Agenda (Oplopend)")
+        st.markdown("### 📅 Agent 5: Toekomstige 30-DAGEN Macro-Agenda (Oplopend)")
         if upcoming_agenda:
             for idx, ev in enumerate(upcoming_agenda, 1):
                 days_left = (ev["date"] - datetime.now(timezone.utc).date()).days
@@ -1179,4 +1199,4 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
             st.info("Geen geplande macro-evenementen gevonden binnen de komende 30 dagen.")
 
 else:
-    st.info("👈 Kies in la zijbalk je instellingen (of typ een vrije zoekopdracht) en klik op **Start Ultimate Master Analyse**.")
+    st.info("👈 Kies in de zijbalk je instellingen (of typ een vrije zoekopdracht) en klik op **Start Volledige Master Analyse**.")
