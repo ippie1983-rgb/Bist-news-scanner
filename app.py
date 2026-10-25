@@ -848,9 +848,270 @@ def calculate_article_priority_and_sort_key(item):
     return priority_level
 
 # ==============================================================================
+# RSS HARVESTING FUNCTIES
+# ==============================================================================
+def fetch_google_rss_feed(args):
+    category_label, query, lang, max_items, max_days, extra_tickers, custom_kw = args
+    q_with_time = f"{query} when:{max_days}d" if max_days else query
+    q_enc = urllib.parse.quote(q_with_time)
+    if lang == "tr":
+        url = f"https://news.google.com/rss/search?q={q_enc}&hl=tr&gl=TR&ceid=TR:tr"
+    else:
+        url = f"https://news.google.com/rss/search?q={q_enc}&hl=nl&gl=NL&ceid=NL:nl"
+
+    items = []
+    now_utc = datetime.now(timezone.utc)
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            root = ET.fromstring(resp.read())
+
+        for item in root.findall(".//item"):
+            raw_title = item.findtext("title") or ""
+            link = item.findtext("link") or ""
+            pub_str = item.findtext("pubDate") or ""
+            raw_desc = item.findtext("description") or ""
+            source_el = item.find("source")
+            source_name = source_el.text if source_el is not None and source_el.text else ("Turkse Media" if lang == "tr" else "NL Media")
+
+            if not raw_title or not link:
+                continue
+
+            clean_title = raw_title.rsplit(" - ", 1)[0].strip() if " - " in raw_title else raw_title.strip()
+            clean_desc = clean_html_text(raw_desc)
+            if source_name in clean_desc:
+                clean_desc = clean_desc.replace(source_name, "").strip(" -·")
+
+            dt = now_utc
+            if pub_str:
+                try:
+                    parsed_dt = parsedate_to_datetime(pub_str)
+                    if parsed_dt:
+                        if parsed_dt.tzinfo is None:
+                            parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
+                        dt = parsed_dt
+                        diff_days = (now_utc - dt).total_seconds() / 86400.0
+                        if max_days is not None and diff_days > (max_days + 0.2):
+                            continue
+                except Exception:
+                    pass
+
+            if not is_economically_relevant(clean_title, clean_desc, extra_tickers, custom_kw):
+                continue
+
+            items.append({
+                "category": category_label,
+                "title_orig": clean_title,
+                "desc_orig": clean_desc,
+                "source": source_name,
+                "link": link,
+                "datetime": dt,
+                "date_str": dt.strftime("%d-%m-%Y %H:%M"),
+                "lang": lang
+            })
+            if len(items) >= max_items:
+                break
+    except Exception:
+        pass
+    return items
+
+def fetch_direct_newspaper_rss(args):
+    source_label, url, max_days, extra_tickers, custom_kw = args
+    items = []
+    now_utc = datetime.now(timezone.utc)
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            raw_bytes = resp.read()
+        root = ET.fromstring(raw_bytes)
+
+        for item in root.findall(".//item")[:18]:
+            raw_title = clean_html_text(item.findtext("title") or "")
+            link = (item.findtext("link") or "").strip()
+            pub_str = item.findtext("pubDate") or ""
+            raw_desc = clean_html_text(item.findtext("description") or "")
+
+            if not raw_title or not link:
+                continue
+
+            dt = now_utc
+            if pub_str:
+                try:
+                    parsed_dt = parsedate_to_datetime(pub_str)
+                    if parsed_dt:
+                        if parsed_dt.tzinfo is None:
+                            parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
+                        dt = parsed_dt
+                        diff_days = (now_utc - dt).total_seconds() / 86400.0
+                        if max_days is not None and diff_days > (max_days + 0.2):
+                            continue
+                except Exception:
+                    pass
+
+            if not is_economically_relevant(raw_title, raw_desc, extra_tickers, custom_kw):
+                continue
+
+            items.append({
+                "category": source_label,
+                "title_orig": raw_title,
+                "desc_orig": raw_desc[:350],
+                "source": source_label.replace("📰 ", "").replace(" (Direct)", ""),
+                "link": link,
+                "datetime": dt,
+                "date_str": dt.strftime("%d-%m-%Y %H:%M"),
+                "lang": "tr"
+            })
+            if len(items) >= 8:
+                break
+    except Exception:
+        pass
+    return items
+
+def enrich_articles_with_dutch_summaries(items, all_bist_codes):
+    def process_one(item):
+        if item["lang"] == "tr":
+            title_nl = translate_to_nl(item["title_orig"])
+            desc_nl = translate_to_nl(item["desc_orig"]) if item["desc_orig"] and len(item["desc_orig"]) > 15 else ""
+        else:
+            title_nl = item["title_orig"]
+            desc_nl = item["desc_orig"]
+
+        item["title_nl"] = title_nl
+        item["desc_nl"] = desc_nl
+
+        analyze_article_semantics(item, all_bist_codes)
+
+        jip_sum, econ_imp, card_cls, badge_html, sector_str, sent_type = build_jip_en_janneke_analysis(
+            item["title_orig"], title_nl, desc_nl, item["category"], item.get("_matched_tickers", set())
+        )
+        item["jip_summary"] = jip_sum
+        item["econ_impact"] = econ_imp
+        item["card_class"] = card_cls
+        item["badge_html"] = badge_html
+        item["sector_str"] = sector_str
+        item["sentiment_type"] = sent_type
+
+        calculate_article_priority_and_sort_key(item)
+        return item
+
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        enriched = list(ex.map(process_one, items))
+    return enriched
+
+# --- AGENT 5: TOEKOMSTIGE 30-DAGEN MACRO AGENDA ---
+def get_upcoming_30_day_agenda():
+    today = datetime.now(timezone.utc).date()
+    end_date = today + timedelta(days=30)
+
+    scheduled_events = [
+        {
+            "date": datetime(2026, 10, 28, 19, 0, tzinfo=timezone.utc).date(),
+            "time_str": "28-10-2026 (21:00 TR)",
+            "title": "🇺🇸 Fed (FOMC) Rentebesluit & Persconferentie Jerome Powell",
+            "jip_summary": (
+                "**Wat gaat er gebeuren:** De Amerikaanse centrale bank (Fed) maakt haar nieuwe rentebesluit bekend, "
+                "gevolgd door de toelichting van voorzitter Jerome Powell."
+            ),
+            "econ_impact": (
+                "**Economisch vooruitzicht:** Dit is het belangrijkste wereldwijde moment van de week. "
+                "Een hint op lagere rentes is direct positief voor **Goud, Zilver** en opkomende markten zoals **Borsa İstanbul (BIST 100)**."
+            ),
+            "link": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+        },
+        {
+            "date": datetime(2026, 10, 29, 9, 0, tzinfo=timezone.utc).date(),
+            "time_str": "29-10-2026 (Hele dag)",
+            "title": "🇹🇷 Cumhuriyet Bayramı (Dag van de Republiek) — Borsa İstanbul Gesloten",
+            "jip_summary": (
+                "**Wat gaat er gebeuren:** Vanwege de nationale feestdag in Turkije is **Borsa İstanbul (BIST)** op 29 oktober gesloten."
+            ),
+            "econ_impact": (
+                "**Economisch vooruitzicht:** Handelaren verkopen voor de feestdag vaak een deel van hun aandelen om geen kredietrente over de vrije dagen te betalen."
+            ),
+            "link": "https://www.borsaistanbul.com/tr/sayfa/143/resmi-tatil-gunleri"
+        },
+        {
+            "date": datetime(2026, 11, 3, 7, 0, tzinfo=timezone.utc).date(),
+            "time_str": "03-11-2026 (10:00 TR)",
+            "title": "🇹🇷 TÜİK Turkse Inflatiecijfers (CPI / TÜFE Oktober)",
+            "jip_summary": (
+                "**Wat gaat er gebeuren:** Het Turkse statistiekbureau (TÜİK) publiceert de officiële maandelijkse en jaarlijkse inflatiecijfers over oktober."
+            ),
+            "econ_impact": (
+                "**Economisch vooruitzicht:** Bepaalt of de Turkse Centrale Bank (TCMB) de rente kan verlagen. "
+                "Valt de inflatie lager uit, dan schieten **BIST 100 bankaandelen** omhoog."
+            ),
+            "link": "https://www.tuik.gov.tr/"
+        },
+        {
+            "date": datetime(2026, 11, 6, 7, 30, tzinfo=timezone.utc).date(),
+            "time_str": "06-11-2026 (10:30 TR)",
+            "title": "🇹🇷 TCMB 4e Inflatieverslag (Enflasyon Raporu) — Toespraak Fatih Karahan",
+            "jip_summary": (
+                "**Wat gaat er gebeuren:** De gouverneur van de Turkse Centrale Bank presenteert de nieuwe inflatievoorspellingen."
+            ),
+            "econ_impact": (
+                "**Economisch vooruitzicht:** Beleggers letten op signalen over het rentepad en de Lira."
+            ),
+            "link": "https://www.tcmb.gov.tr/"
+        },
+        {
+            "date": datetime(2026, 11, 9, 15, 0, tzinfo=timezone.utc).date(),
+            "time_str": "09-11-2026 (18:00 TR)",
+            "title": "🇹🇷 KAP Deadline Q3 2026 Kwartaalcijfers (Niet-Geconsolideerde BIST Bedrijven)",
+            "jip_summary": (
+                "**Wat gaat er gebeuren:** Laatste dag waarop niet-geconsolideerde beursbedrijven hun derdekwartaalcijfers publiceren op KAP."
+            ),
+            "econ_impact": (
+                "**Economisch vooruitzicht:** Zorgt voor koersbewegingen per individueel aandeel op basis van winstmarges."
+            ),
+            "link": "https://www.kap.org.tr/"
+        },
+        {
+            "date": datetime(2026, 11, 11, 13, 30, tzinfo=timezone.utc).date(),
+            "time_str": "11-11-2026 (16:30 TR)",
+            "title": "🇺🇸 Amerikaanse Inflatiecijfers (US CPI Oktober)",
+            "jip_summary": (
+                "**Wat gaat er gebeuren:** Publicatie van de Amerikaanse consumentenprijzen."
+            ),
+            "econ_impact": (
+                "**Economisch vooruitzicht:** Directe koersbepaler voor **Goud en Zilver**. Lagere Amerikaanse inflatie stuwt edelmetalen."
+            ),
+            "link": "https://www.bls.gov/cpi/"
+        },
+        {
+            "date": datetime(2026, 11, 19, 11, 0, tzinfo=timezone.utc).date(),
+            "time_str": "19-11-2026 (14:00 TR)",
+            "title": "🇹🇷 TCMB Rentebesluit (PPK Toplantısı & Faiz Kararı)",
+            "jip_summary": (
+                "**Wat gaat er gebeuren:** Het Monetair Beleidscomité van de Turkse Centrale Bank maakt het rentebesluit bekend."
+            ),
+            "econ_impact": (
+                "**Economisch vooruitzicht:** Hét belangrijkste binnenlandse macro-moment voor de **USD/TRY wisselkoers**, **Gram Goud** en de **BIST 100 Index**."
+            ),
+            "link": "https://www.tcmb.gov.tr/"
+        },
+        {
+            "date": datetime(2026, 11, 20, 15, 0, tzinfo=timezone.utc).date(),
+            "time_str": "20-11-2026 (18:00 TR)",
+            "title": "🇹🇷 KAP Deadline Q3 2026 Geconsolideerde Kwartaalcijfers (Holdings & Banken)",
+            "jip_summary": (
+                "**Wat gaat er gebeuren:** Uiterste datum waarop grote holdings (KCHOL, SAHOL) hun volledige kwartaalcijfers bekendmaken."
+            ),
+            "econ_impact": (
+                "**Economisch vooruitzicht:** Sluit het cijferseizoen af en bepaalt de leiders in de **BIST 100** richting het jaareinde."
+            ),
+            "link": "https://www.kap.org.tr/"
+        }
+    ]
+
+    future_events = [ev for ev in scheduled_events if today <= ev["date"] <= end_date]
+    future_events.sort(key=lambda x: x["date"])
+    return future_events
+
+# ==============================================================================
 # HOOFDPROGRAMMA
 # ==============================================================================
-# --- LIVE MARKT TICKER BAR ---
 st.markdown("### 📊 Live Marktoverzicht (BIST 100, Valuta & Edelmetalen in $ en ₺)")
 market_data = get_live_market_snapshot()
 market_items = list(market_data.items())
@@ -1179,7 +1440,7 @@ if st.button("🚀 Start Volledige Master Analyse", type="primary"):
     # TAB 5: AGENT 5 — KOMENDE 30-DAGEN MACRO-AGENDA
     # ==========================================================================
     with tab5:
-        st.markdown("### 📅 Agent 5: Toekomstige 30-DAGEN Macro-Agenda (Oplopend)")
+        st.markdown("### 📅 Agent 5: Toekomstige 30-Dagen Macro-Agenda (Oplopend)")
         if upcoming_agenda:
             for idx, ev in enumerate(upcoming_agenda, 1):
                 days_left = (ev["date"] - datetime.now(timezone.utc).date()).days
