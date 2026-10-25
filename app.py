@@ -11,7 +11,7 @@ from datetime import datetime, timezone, date
 
 # Pagina configuratie
 st.set_page_config(
-    page_title="BIST & Edelmetalen 6-Agent Master Scanner",
+    page_title="BIST 100 & Edelmetalen Master Scanner",
     page_icon="🇹🇷",
     layout="wide"
 )
@@ -24,8 +24,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 6-Agent Master Scanner</p>', unsafe_allow_html=True)
-st.markdown("Live marktoverzicht, **uitgebreide BIST 100 & aandelenselectie**, ultieme brekend-nieuwsstroom (inclusief aanhoudingen en schandalen) en een **toekomstige 30-dagen Macro-Agenda**.")
+st.markdown('<p class="main-header">🇹🇷 BIST 100 & Edelmetalen Master Scanner</p>', unsafe_allow_html=True)
+st.markdown("Live marktoverzicht, **alle 100 BIST aandelen selecteerbaar**, strikt **economisch & financieel gefilterd nieuws door Agent 1**, en een **toekomstige 30-dagen Macro-Agenda**.")
 
 # --- ZIJBALK: INSTELLINGEN ---
 if "gemini_auth" not in st.session_state:
@@ -39,42 +39,47 @@ st.session_state.gemini_auth = st.sidebar.text_input(
     value=st.session_state.gemini_auth,
     help="Staat standaard ingesteld."
 )
-st.sidebar.success("✅ Master Scanner Actief!")
+st.sidebar.success("✅ BIST 100 Master Scanner Actief!")
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("🎯 BIST & Aandelen Selectie (Agent 1)")
+st.sidebar.subheader("🎯 BIST 100 & Aandelen Selectie (Agent 1)")
 
-# Uitgebreide lijst met BIST 100 opties en algemene beurskeuze
-BIST_ALL_OPTIONS = [
+# Volledige BIST 100 selectielijst
+BIST_100_FULL_LIST = [
     "📈 BIST 100 Index (Algemeen & Brede Markt)",
-    "THYAO (Turkish Airlines)",
-    "ASELS (Aselsan)",
-    "KCHOL (Koç Holding)",
-    "AKBNK (Akbank)",
-    "GARAN (Garanti BBVA)",
-    "TUPRS (Tüpraş)",
-    "BIMAS (Bim)",
-    "EREGL (Erdemir)",
-    "SISE (Şişecam)",
-    "SASA (Sasa Polyester)",
-    "EKGYO (Emlak Konut GYO)",
-    "YKBNK (Yapı Kredi)",
-    "ISCTR (İş Bankası)",
-    "PETKM (Petkim)",
-    "GARAN (Garanti)",
-    "PGSUS (Pegasus)",
-    "TOASO (Tofaş)",
-    "BJKAS (Beşiktaş)",
-    "HEKTS (Hektaş)"
+    "THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)", "AKBNK (Akbank)", 
+    "GARAN (Garanti BBVA)", "TUPRS (Tüpraş)", "BIMAS (Bim)", "EREGL (Erdemir)", "SISE (Şişecam)", 
+    "SASA (Sasa Polyester)", "EKGYO (Emlak Konut GYO)", "YKBNK (Yapı Kredi)", "ISCTR (İş Bankası)", 
+    "PETKM (Petkim)", "PGSUS (Pegasus)", "TOASO (Tofaş)", "ARCLK (Arçelik)", "ENKAI (Enka İnşaat)", 
+    "KRDMD (Kardemir D)", "TTKOM (Türk Telekom)", "TCELL (Turkcell)", "FROTO (Ford Otosan)", 
+    "MGROS (Migros)", "SOKM (Şok Marketler)", "ASTOR (Astor Enerji)", "ENJSA (Enerjisa)", 
+    "SAHOL (Sabancı Holding)", "OYAKC (Oyak Çimento)", "HEKTS (Hektaş)", "ODAS (Odaş Elektrik)", 
+    "GESAN (Girişim Elektrik)", "KONTR (Kontrolmatik)", "ALBRK (Albaraka Türk)", "HALKB (Halkbank)", 
+    "VAKBN (VakıfBank)", "TSKB (TSKB)", "SKBNK (Şekerbank)", "ALARK (Alarko Holding)", 
+    "AGHOL (Anadolu Grubu)", "CIMSA (Çimsa)", "AKCNS (Akçansa)", "BRYAT (Borusan Yatırım)", 
+    "BRSAN (Borusan Mannesmann)", "CLEBI (Çelebi)", "DEVA (Deva Holding)", "ECILC (Eczacıbaşı İlaç)", 
+    "EGEEN (Ege Endüstri)", "ENERY (Enerya Enerji)", "EUPWR (Europower)", "EKSUN (Eksun Gıda)", 
+    "GENIL (Gen İlaç)", "GUBRF (Gübre Fabrikaları)", "IPEKE (İpek Enerji)", "KCAER (Kocaer Çelik)", 
+    "KORDS (Kordsa)", "KOZAA (Koza Anadolu)", "KOZAL (Koza Altın)", "KMPUR (Kimteks Kimya)", 
+    "KZBGY (Kızılbük GYO)", "MAVI (Mavi Giyim)", "MIATK (MIA Teknoloji)", "OTKAR (Otokar)", 
+    "PASEU (Pasifik Eurasia)", "PENTA (Penta Teknoloji)", "QUAGR (Qua Granite)", 
+    "RGYAS (Rönesans Gayrimenkul)", "SMRTG (Smart Güneş Enerjisi)", "SDTTR (SDT Uzay en Savunma)", 
+    "TAVHL (TAV Havalimanları)", "TKFEN (Tekfen Holding)", "TMSN (Tumosan)", "TRGYO (Torunlar GYO)", 
+    "TSPOR (Trabzonspor)", "ULKER (Ülker Bisküvi)", "VAKKO (Vakko)", "VESBE (Vestel Beyaz Eşya)", 
+    "VESTL (Vestel)", "YYLGD (Yayla Gıda)", "ZOREN (Zorlu Enerji)", "CWENE (CW Enerji)", 
+    "DOHOL (Doğan Holding)", "FORMT (Formet Metal)", "GLYHO (Global Yatırım Holding)", 
+    "GWIND (Galata Wind)", "IHLAS (İhlas Holding)", "INVEO (Inveo Yatırım)", "KOTON (Koton)", 
+    "MHRGY (MHR Gayrimenkul)", "OBAMS (Oba Makarna)", "REEDR (Reeder Teknoloji)", 
+    "TABGD (Tab Gıda)", "TARKM (Tarım Kredi)", "YEOTK (YEO Teknoloji)"
 ]
 
 selected_tickers = st.sidebar.multiselect(
-    "Kies BIST 100 Algemeen en/of specifieke aandelen:",
-    BIST_ALL_OPTIONS,
+    "Selecteer BIST 100 Index en/of specifieke aandelen (alle 100+ beschikbaar):",
+    BIST_100_FULL_LIST,
     default=["📈 BIST 100 Index (Algemeen & Brede Markt)", "THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)"]
 )
 
-# --- HULPFUNCTIES VOOR LIVE MARKTDATA & ULTIEME RSS FEEDS ---
+# --- HULPFUNCTIES VOOR LIVE MARKTDATA & RSS FILTERS ---
 @st.cache_data(ttl=300, show_spinner=False)
 def get_live_market_snapshot():
     symbols = {
@@ -135,7 +140,7 @@ def get_stock_snapshots(tickers_clean):
             snapshots[code] = {"price": None, "change": 0.0, "rsi": 50.0, "trend": "Onbekend"}
     return snapshots
 
-def fetch_news_strict(query, lang="tr", max_items=15, min_days=None, max_days=None):
+def fetch_news_strict(query, lang="tr", max_items=15, max_days=3):
     q_enc = urllib.parse.quote(query)
     if lang == "tr":
         url = f"https://news.google.com/rss/search?q={q_enc}&hl=tr&gl=TR&ceid=TR:tr"
@@ -165,8 +170,6 @@ def fetch_news_strict(query, lang="tr", max_items=15, min_days=None, max_days=No
                 if dt:
                     diff_days = (now_utc - dt).total_seconds() / 86400.0
                     if max_days is not None and diff_days > max_days:
-                        continue
-                    if min_days is not None and diff_days < min_days:
                         continue
                 
                 items.append({
@@ -223,31 +226,29 @@ def call_gemini_with_fallback(prompt_text, system_instruction, fallback_text):
     return fallback_text
 
 # --- HOOFDPROGRAMMA ---
-st.markdown("### 🤖 Start de 6-Agent Master Scanner")
-st.markdown("Druk op de knop om de ultieme markt- en brekend-nieuwsanalyse te starten.")
+st.markdown("### 🤖 Start de BIST 100 Master Scanner")
+st.markdown("Druk op de knop om de economisch gefilterde analyse te starten.")
 
-if st.button("🚀 Start Master 6-Agent Analyse", type="primary"):
-    # Filter de selectie: haal tickers op uit gekozen items
+if st.button("🚀 Start BIST 100 Master Analyse", type="primary"):
     is_bist100_general = any("BIST 100 Index" in t for t in selected_tickers)
     tickers_clean = [t.split(" ")[0] for t in selected_tickers if "BIST 100" not in t]
-    tickers_str = ", ".join(tickers_clean) if tickers_clean else "Geen specifieke aandelen (Algemeen BIST 100 focus)"
+    tickers_str = ", ".join(tickers_clean) if tickers_clean else "Geen specifieke aandelen (Volledige BIST 100 Macro Focus)"
 
-    with st.spinner("📡 Ultieme live nieuwsstroom ophalen (inclusief aanhoudingen, SPK, schandalen en bursa-brekend nieuws)..."):
+    with st.spinner("📡 Ophalen van financieel nieuws (BIST 100, SPK, macro, politiek, bedrijfsresultaten)..."):
         stock_snaps = get_stock_snapshots(tickers_clean)
         
-        # Uitgebreide, brede zoekopdrachten zodat je véél meer nieuws krijgt dan via een enkele krant
-        tr_econ_items = fetch_news_strict("Borsa Istanbul BIST 100 ekonomi TCMB operasyon", "tr", 15, max_days=3)
-        tr_spk_items = fetch_news_strict("SPK ceza gozalti tutuklama operasyon borsa fon skandali", "tr", 15, max_days=3)
-        tr_breaking_items = fetch_news_strict("son dakika borsa borsa gundem ekonomi haberleri", "tr", 15, max_days=3)
+        tr_econ_items = fetch_news_strict("Borsa Istanbul BIST 100 ekonomi TCMB Mehmet Simsek", "tr", 15, 3)
+        tr_spk_items = fetch_news_strict("SPK ceza sorusturma fon skandali kayyum operasyon", "tr", 12, 3)
+        tr_pol_econ_items = fetch_news_strict("Turkiye siyaset ekonomi Merkez Bankasi enflasyon", "tr", 12, 3)
         
         stock_news_dict = {}
-        for c in tickers_clean:
-            stock_news_dict[c] = fetch_news_strict(f"{c} hisse KAP haber", "tr", 6, max_days=3)
+        for c in tickers_clean[:20]: # Kan tot 20 gekozen aandelen live ophalen
+            stock_news_dict[c] = fetch_news_strict(f"{c} hisse KAP bilanco", "tr", 4, 3)
         
-        nl_war_items = fetch_news_strict("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 8, max_days=3)
-        nl_gold_items = fetch_news_strict("goudprijs zilverprijs Fed rente", "nl", 8, max_days=3)
+        nl_war_items = fetch_news_strict("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 8, 3)
+        nl_gold_items = fetch_news_strict("goudprijs zilverprijs Fed rente", "nl", 8, 3)
         
-        agenda_items = fetch_news_strict("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon", "tr", 12, max_days=None)
+        agenda_items = fetch_news_strict("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon", "tr", 12, None)
         agenda_items = sorted(agenda_items, key=lambda x: x["datetime"])
 
         bist_p = market_data.get("BIST 100", {}).get("price") or 0.0
@@ -258,28 +259,29 @@ if st.button("🚀 Start Master 6-Agent Analyse", type="primary"):
         silv_p = market_data.get("Zilver Ons ($)", {}).get("price") or 0.0
         vix_p = market_data.get("VIX (Angst)", {}).get("price") or 0.0
 
-    # Combineer alle Turkse nieuwsitems
-    all_tr_items = tr_econ_items + tr_spk_items + tr_breaking_items
-    for c in tickers_clean:
+    all_tr_items = tr_econ_items + tr_spk_items + tr_pol_econ_items
+    for c in tickers_clean[:20]:
         all_tr_items.extend(stock_news_dict.get(c, []))
 
-    # --- AGENT 1: Uitgebreide analyse met BIST 100 focus en brekend nieuws ---
-    with st.spinner("🇹🇷 Agent 1: Uitgebreide analyse van BIST 100, aanhoudingen en marktnieuws genereren..."):
+    # --- AGENT 1: Strikte Economische & Marktanalyse met AI-Filter ---
+    with st.spinner("🇹🇷 Agent 1: Filteren op economie en Jip-en-Janneketaal samenvattingen genereren..."):
         articles_formatted = "\n".join([f"- Titel: {item['title']}\n  Link: {item['link']}\n  Datum: {item['date']}\n" for item in all_tr_items]) if all_tr_items else "Geen artikelen."
         
-        fallback_agent1 = f"### 🇹🇷 BIST 100 & Turkije Overzicht\n\n- **BIST 100:** {bist_p:,.0f} | **USD/TRY:** ₺{usd_p:,.2f}"
+        fallback_agent1 = "### 🇹🇷 BIST 100 & Economisch Overzicht\n\nGeen artikelen geladen."
         prompt_agent1 = (
-            "Jij bent Agent 1: BIST 100 & Brekend Nieuws Intelligence Agent.\n"
+            "Jij bent Agent 1: BIST 100 & Strikte Economische Intelligence Agent.\n"
             f"De gebruiker volgt de brede markt (BIST 100 Algemeen: {is_bist100_general}) en deze specifieke aandelen: {tickers_str}.\n\n"
-            "Hieronder staat een rijke stroom aan recente artikelen en brekend nieuws (inclusief aanhoudingen, SPK-onderzoeken, invallen en marktnieuws) van de afgelopen 3 dagen:\n\n"
+            "Hieronder staat een lijst met recente artikelen van de afgelopen 3 dagen uit de Turkse media:\n\n"
             f"{articles_formatted}\n\n"
-            "STRENGE OPDRACHT:\n"
-            "1. Bespreek uitgebreid wat dit nieuws betekent voor de **BIST 100 in zijn algemeenheid** (indien geselecteerd).\n"
-            "2. Loop de geselecteerde aandelen stuk voor stuk langs.\n"
-            "3. Geef per belangrijk artikel/onderwerp een heldere samenvatting in Jip-en-Janneketaal over de impact op de koers en de markt.\n"
-            "4. Vermeld bij elk onderwerp exact de bijbehorende bronlink in Markdown formaat ([Lees artikel](URL))."
+            "STRENGE FILTER- EN ANALYSE-OPDRACHT:\n"
+            "1. **STRIKTE ECONOMISCHE SELECTIE:** Filter ALLES weg wat niet direct te maken heeft met economie, financiën, beurskoersen, SPK-maatregelen, fondsschandalen, centrale banken (TCMB/Fed), officiële bedrijfsresultaten (KAP) of politieke gebeurtenissen met directe marktimpact (zoals spanningen met de VS/Trump, arrestaties van bestuurders of macro-beleid). Negeer sport, voetbal, amusement, films en willekeurige misdaad zonder economische link volledig.\n"
+            "2. **ARTIKEL PER ARTIKEL:** Loop de overgebleven, relevante artikelen stuk voor stuk langs.\n"
+            "3. **STRUCTUUR PER ARTIKEL:** Geef per artikel exact weer:\n"
+            "   - **Titel van het artikel**\n"
+            "   - **Jip-en-Janneketaal Samenvatting:** Wat betekent dit concreet voor de belegger en de koers?\n"
+            "   - **Bronlink:** Zet exact de URL-link neer in de vorm van een Markdown link ([Lees het volledige artikel hier](URL)).\n"
         )
-        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een deskundige Turkse marktexpert.", fallback_agent1)
+        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een strikt economische Turkse marktexpert die uitsluitend financieel relevant nieuws selecteert en samenvat.", fallback_agent1)
 
     # --- AGENT 2 ---
     with st.spinner("🌍 Agent 2: Globaal & Edelmetalen..."):
@@ -320,10 +322,10 @@ if st.button("🚀 Start Master 6-Agent Analyse", type="primary"):
         agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent een macro-economisch analist en agenda-expert.", fallback_agenda)
 
     # --- TOON RESULTATEN IN TABS ---
-    st.success("✅ Master Analyse succesvol afgerond!")
+    st.success("✅ Master Analyse met strenge economische filtering succesvol afgerond!")
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "🇹🇷 Agent 1: BIST & Brekend Nieuws",
+        "🇹🇷 Agent 1: BIST & Economisch Nieuws",
         "🌍 Agent 2: Globaal",
         "🕵️‍♂️ Agent 3: Fact-Check",
         "💡 Agent 4: Advies",
@@ -332,15 +334,15 @@ if st.button("🚀 Start Master 6-Agent Analyse", type="primary"):
     ])
 
     with tab1:
-        st.markdown("### Agent 1: BIST 100, Brekend Nieuws, Aanhoudingen & Samenvattingen")
+        st.markdown("### Agent 1: BIST 100 & Strikt Economisch Gefilterd Nieuws")
         st.markdown(agent1_output)
         st.markdown("---")
-        st.markdown("#### 🔗 Volledige Bronlijst Turkse Media (Brekend & Laatste Minuut - Max 3 Dagen)")
+        st.markdown("#### 🔗 Geverifieerde Economische Bronlijst (Max 3 Dagen Oud)")
         if all_tr_items:
             for item in all_tr_items:
                 st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
         else:
-            st.info("Geen artikelen gevonden.")
+            st.info("Geen economische artikelen gevonden.")
 
     with tab2:
         st.markdown("### Agent 2: Wereldnieuws, Oorlog & Edelmetalen")
@@ -370,4 +372,4 @@ if st.button("🚀 Start Master 6-Agent Analyse", type="primary"):
         st.markdown(agent6_output)
 
 else:
-    st.info("👈 Selecteer je aandelen of BIST 100 in de zijbalk en klik op de knop om de master analyse te starten!")
+    st.info("👈 Selecteer de BIST 100 Index en/of je gewenste aandelen in de zijbalk en klik op de knop om de analyse te starten!")
