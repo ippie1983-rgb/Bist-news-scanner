@@ -287,7 +287,7 @@ if st.button("🚀 Start Grondige Master Analyse", type="primary"):
 
     # --- AGENT 2 ---
     with st.spinner("🌍 Agent 2: Globaal & Edelmetalen..."):
-        fallback_agent2 = f"Goud is ${gold_p:,.2f} (Gram: ₺{gram_p:,.2f}), Zilver is${silv_p:,.2f}."
+        fallback_agent2 = f"Goud is ${gold_p:,.2f} (Gram: ₺{gram_p:,.2f}), Zilver is ${silv_p:,.2f}."
         prompt_agent2 = "Jij bent Agent 2. Analyseer goud, zilver en wereldnieuws."
         agent2_output = call_gemini_with_fallback(prompt_agent2, "Je bent een macro-analist.", fallback_agent2)
 
@@ -305,4 +305,73 @@ if st.button("🚀 Start Grondige Master Analyse", type="primary"):
 
     # --- AGENT 5 ---
     with st.spinner("⚖️ Agent 5: Auditing..."):
-        fallback_agent5 = "Let op valutarisico's
+        fallback_agent5 = "Let op valutarisico's en recente geopolitieke spanningen (VIX: " + str(vix_p) + ")."
+        prompt_agent5 = "Jij bent Agent 5. Voer risico-audit uit."
+        agent5_output = call_gemini_with_fallback(prompt_agent5, "Je bent risicocontroleur.", fallback_agent5)
+
+    # --- AGENT 6: Toekomstige 30-Dagen Macro Agenda (Oplopend) ---
+    with st.spinner("📅 Agent 6: Toekomstige 30-Dagen Macro Agenda genereren..."):
+        agenda_formatted = "\n".join([f"- Datum: {item['date']} | Titel: {item['title']} | Link: {item['link']}" for item in agenda_items]) if agenda_items else "Geen agenda-items."
+        fallback_agenda = "### 📅 Toekomstige 30-Dagen Macro Agenda\n\nGeplande publicaties en besluiten."
+        prompt_agent6 = (
+            "Jij bent Agent 6: De Toekomstige Macro-Agenda Samenvatter.\n"
+            "Hier zijn de chronologisch gesorteerde komende agenda-artikelen:\n"
+            f"{agenda_formatted}\n\n"
+            "OPDRACHT:\n"
+            "Zet deze toekomstige agenda-items om in een helder, oplopend overzicht in normale mensentaal (Jip-en-Janneketaal). "
+            "Vermeld bij elk item de datum, een korte uitleg van wat er gaat gebeuren, en de bijbehorende bronlink."
+        )
+        agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent een macro-economisch analist en agenda-expert.", fallback_agenda)
+
+    # --- TOON RESULTATEN IN TABS ---
+    st.success("✅ Grondige Master Analyse succesvol afgerond!")
+
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "🇹🇷 Agent 1: Turkse Economie & Nieuws",
+        "🌍 Agent 2: Globaal",
+        "🕵️‍♂️ Agent 3: Fact-Check",
+        "💡 Agent 4: Advies",
+        "⚖️ Agent 5: Auditing",
+        "📅 Agent 6: TOEKOMSTIGE AGENDA"
+    ])
+
+    with tab1:
+        st.markdown("### Agent 1: Turkse Economie & Strikt Gefilterd Marktnieuws")
+        st.markdown(agent1_output)
+        st.markdown("---")
+        st.markdown("#### 🔗 Geverifieerde Economische Bronlijst (Max 3 Dagen Oud)")
+        if all_tr_items:
+            for item in all_tr_items:
+                st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
+        else:
+            st.info("Geen economische artikelen gevonden.")
+
+    with tab2:
+        st.markdown("### Agent 2: Wereldnieuws, Oorlog & Edelmetalen")
+        st.markdown(agent2_output)
+        st.markdown("---")
+        st.markdown("#### 🔗 Volledige Bronlijst Internationale Media (Max 3 Dagen Oud)")
+        if nl_war_items or nl_gold_items:
+            for item in nl_war_items + nl_gold_items:
+                st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
+        else:
+            st.info("Geen recente internationale artikelen gevonden.")
+
+    with tab3:
+        st.markdown("### Agent 3: De Waarheids-Filter (Fact-Check)")
+        st.markdown(agent3_output)
+
+    with tab4:
+        st.markdown("### Agent 4: Concreet Beleggingsadvies (Jip-en-Janneketaal)")
+        st.markdown(agent4_output)
+
+    with tab5:
+        st.markdown("### Agent 5: Eindcontrole & Risico-Audit")
+        st.markdown(agent5_output)
+
+    with tab6:
+        st.markdown("### Agent 6: Toekomstige 30-Dagen Macro Agenda")
+        st.markdown(agent6_output)
+
+else:
+    st.info("👈 Selecteer de BIST 100 Index en/of je gewenste aandelen in de zijbalk en klik op de knop om de analyse te starten!")
