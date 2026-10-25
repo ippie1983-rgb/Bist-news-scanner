@@ -1114,7 +1114,7 @@ if st.button("🚀 Start Volledige Master Analyse", type="primary"):
     # TAB 5: AGENT 5 — KOMENDE 30-DAGEN MACRO-AGENDA
     # ==========================================================================
     with tab5:
-        st.markdown("### 📅 Agent 5: Toekomstige 30-Dagen Macro-Agenda (Oplopend)")
+        st.markdown("### 📅 Agent 5: Toekomstige 30-DAGEN Macro-Agenda (Oplopend)")
         if upcoming_agenda:
             for idx, ev in enumerate(upcoming_agenda, 1):
                 days_left = (ev["date"] - datetime.now(timezone.utc).date()).days
@@ -1125,7 +1125,7 @@ if st.button("🚀 Start Volledige Master Analyse", type="primary"):
                         <span style="font-size: 17px; font-weight: bold; color: #1e3a8a;">{ev['title']}</span>
                         <hr style="margin: 8px 0; border: 0; border-top: 1px solid #93c5fd;">
                         <p style="margin-bottom: 6px;">🗣️ {ev['jip_summary']}</p>
-                        <p style="margin-bottom: 8px;">📊 {ev['econ_impact']}</p>
+                        <p style="margin-bottom: 8px;">📊 {ev['econ_impact']}}}
                         🔗 <a href="{ev['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8;">Klik hier voor de officiële bron & kalenderpagina</a>
                     </div>""",
                     unsafe_allow_html=True
