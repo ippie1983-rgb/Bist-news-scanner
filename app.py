@@ -218,7 +218,7 @@ selected_tickers = st.sidebar.multiselect(
 
 max_days_slider = st.sidebar.slider("Nieuws ouderdom (dagen):", min_value=1, max_value=5, value=3)
 
-include_direct_ newspaper_rss = st.sidebar.checkbox(
+include_direct_newspaper_rss = st.sidebar.checkbox(
     "⚡ Inclusief rechtstreekse Turkse kranten-feeds (BloombergHT, NTV, T24, Dünya)",
     value=True
 )
@@ -363,7 +363,6 @@ def get_live_market_snapshot():
 
 @st.cache_data(ttl=600, show_spinner=False)
 def get_bist_technical_snapshots(tickers_tuple):
-    """Haalt voor genoemde BIST-aandelen live Koers, Dag %, RSI(14), Steun S1 en Weerstand R1 op."""
     snapshots = {}
     for code in tickers_tuple:
         yf_sym = f"{code}.IS"
@@ -378,13 +377,11 @@ def get_bist_technical_snapshots(tickers_tuple):
                 chg_1d = ((curr - prev) / prev) * 100.0 if prev else 0.0
                 sma20 = float(close.rolling(20).mean().iloc[-1])
 
-                # RSI(14)
                 delta = close.diff()
                 gain = delta.clip(lower=0).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
                 loss = (-delta.clip(upper=0)).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
                 rsi = 100.0 - (100.0 / (1.0 + (gain / loss))) if loss and loss > 0 else 50.0
 
-                # Fibonacci Pivot S1 & R1 over laatste 20 handelsdagen
                 w_h = float(high.tail(20).max())
                 w_l = float(low.tail(20).min())
                 pivot = (w_h + w_l + curr) / 3.0
@@ -405,7 +402,7 @@ def get_bist_technical_snapshots(tickers_tuple):
     return snapshots
 
 # ==============================================================================
-# SEMANTISCHE INHOUDS-, PERSOONS- & DOSSIER-ENGINE (VOORKOMT DUBBELE ARTIKELEN)
+# SEMANTISCHE INHOUDS-, PERSOONS- & DOSSIER-ENGINE
 # ==============================================================================
 SEMANTIC_CONCEPT_DICT = {
     "CONCEPT_HUISARREST": [
@@ -498,23 +495,14 @@ def normalize_tr(text):
     return text.translate(tr_map).lower()
 
 def extract_proper_entities_and_numbers(title_orig, title_nl):
-    """
-    Haalt eigennamen (woorden met een hoofdletter midden in de zin of na het eerste woord)
-    en specifieke getallen uit de titel, zodat Persoon A en Persoon B uit elkaar worden gehouden,
-    terwijl twee artikelen over Persoon A wél als 1 onderwerp worden herkend.
-    """
     entities = set()
-    # Zoek woorden met een hoofdletter in de originele Turkse en Nederlandse titel (vanaf positie 1)
     for txt in [title_orig, title_nl]:
         tokens = re.findall(r'\b[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}\b', txt)
-        for idx, tok in enumerate(tokens):
+        for tok in tokens:
             norm_tok = normalize_tr(tok)
             if norm_tok in COMMON_CAPITALIZED_IGNORE or norm_tok in STOPWORDS_ALL:
                 continue
-            # Neem stam (eerste 5 letters) zodat 'Yılmaz'a' en 'Yılmaz' matchen
             entities.add(norm_tok[:5] if len(norm_tok) >= 5 else norm_tok)
-
-    # Voeg ook uitdrukkelijke getallen toe (bijv. "47 gözaltı", "3 şirkete", "500 milyon")
     numbers = set(re.findall(r'\b\d+\b', f"{title_orig} {title_nl}"))
     return entities, numbers
 
@@ -522,7 +510,6 @@ def analyze_article_semantics(item, all_bist_tickers):
     full_text_raw = f"{item.get('title_orig', '')} {item.get('desc_orig', '')} {item.get('title_nl', '')} {item.get('desc_nl', '')}".lower()
     full_text_norm = normalize_tr(full_text_raw)
 
-    # 1. Detecteer BIST-aandelen (via ticker of bedrijfsnaam)
     matched_tickers = set()
     for comp_name, tick in COMPANY_TO_TICKER_MAP.items():
         if comp_name in full_text_raw or normalize_tr(comp_name) in full_text_norm:
@@ -532,18 +519,15 @@ def analyze_article_semantics(item, all_bist_tickers):
         if re.search(r'\b' + re.escape(t_low) + r'\b', full_text_raw):
             matched_tickers.add(tick.upper())
 
-    # 2. Detecteer prominente personen/economen
     matched_persons = set()
     for person in FAMOUS_PERSONS_AND_INSTITUTIONS:
         if person in full_text_raw or normalize_tr(person) in full_text_norm:
             matched_persons.add(normalize_tr(person))
 
-    # 3. Extraheer eigennamen en getallen uit de koppen
     proper_entities, numbers = extract_proper_entities_and_numbers(
         item.get("title_orig", ""), item.get("title_nl", "")
     )
 
-    # 4. Detecteer Semantische Concepten
     matched_concepts = []
     for concept_key, phrases in SEMANTIC_CONCEPT_DICT.items():
         for phrase in phrases:
@@ -551,7 +535,6 @@ def analyze_article_semantics(item, all_bist_tickers):
                 matched_concepts.append(concept_key)
                 break
 
-    # 5. Extraheer inhoudelijke kern-stammen
     words = re.findall(r'[a-z0-9]{4,}', full_text_norm)
     core_stems = set()
     for w in words:
@@ -561,7 +544,6 @@ def analyze_article_semantics(item, all_bist_tickers):
         if stem not in STOPWORDS_ALL:
             core_stems.add(stem)
 
-    # 6. Bepaal leesbaar onderwerp-label en cluster-ID
     if "CONCEPT_HUISARREST" in matched_concepts:
         story_cluster = "CLUSTER_HUISARREST_ZAAK"
         topic_readable = "⚖️ Dossier: Huisarrest & Justitiële Maatregel"
@@ -626,12 +608,6 @@ def analyze_article_semantics(item, all_bist_tickers):
     return item
 
 def deduplicate_by_semantic_content(enriched_list, max_mode=False):
-    """
-    Slimme Inhouds- & Persoons-Ontdubbeling:
-    - Voegt artikelen die in een andere vorm over exact hetzelfde onderwerp/persoon/aandeel gaan samen tot 1 kaart.
-    - Houdt artikelen over twéé verschillende personen of twéé verschillende bedrijven binnen hetzelfde thema netjes apart
-      (tenzij de gebruiker in de zijbalk expliciet voor 'Maximaal' kiest).
-    """
     unique_items = []
     seen_links = set()
 
@@ -670,48 +646,37 @@ def deduplicate_by_semantic_content(enriched_list, max_mode=False):
             overlap_ratio = shared_stems / max(1, min(len(c_stems), len(ex_stems))) if (c_stems and ex_stems) else 0.0
             shared_entities = bool(c_entities & ex_entities)
             shared_numbers = bool(c_numbers & ex_numbers)
-
-            # Check of twee berichten aantoonbaar over VERSCHILLENDE aandelen gaan
             conflicting_tickers = bool(c_tickers and ex_tickers and not (c_tickers & ex_tickers))
 
-            # Regel 1: Als ze over hetzelfde specifieke Story Cluster gaan (bijv. beide Huisarrest of Fondsschandaal)
             if c_cluster and ex_cluster and c_cluster == ex_cluster and not conflicting_tickers:
                 if max_mode:
                     duplicate_of = existing
                     break
-                # In 'Slim' modus: voeg samen als ze minstens 1 eigennaam, getal, persoon of kernwoord delen,
-                # of als een van beide een algemene kop zonder specifieke andere persoonsnaam heeft
                 if shared_entities or shared_numbers or shared_stems >= 1 or not c_entities or not ex_entities:
                     duplicate_of = existing
                     break
 
-            # Regel 2: Zelfde prominente persoon + zelfde concept
             if c_persons and ex_persons and (c_persons & ex_persons) and (c_concepts & ex_concepts):
                 duplicate_of = existing
                 break
 
-            # Regel 3: Zelfde BIST-aandeel + zelfde concept (of hoge woord-overlap)
             if c_tickers and ex_tickers and (c_tickers & ex_tickers) and ((c_concepts & ex_concepts) or overlap_ratio >= 0.25):
                 duplicate_of = existing
                 break
 
-            # Regel 4: Hoge inhoudelijke stam-overlap (Titel + Beschrijving)
             if overlap_ratio >= 0.34 and not conflicting_tickers:
                 duplicate_of = existing
                 break
 
-            # Regel 5: Gedeeld concept + gedeelde eigennaam/getal/kernwoorden
             if (c_concepts & ex_concepts) and (shared_entities or shared_numbers or shared_stems >= 2) and not conflicting_tickers:
                 duplicate_of = existing
                 break
 
-            # Regel 6: Tekstuele gelijkenis van de vertaalde titel
             if difflib.SequenceMatcher(None, c_title_norm, ex_title_norm).ratio() >= 0.48:
                 duplicate_of = existing
                 break
 
         if duplicate_of is not None:
-            # Bewaar de extra bron + klikbare link zodat de gebruiker alle bronnen bij dezelfde kaart heeft
             existing_sources = [s["name"] for s in duplicate_of["extra_source_links"]]
             if item["source"] != duplicate_of["source"] and item["source"] not in existing_sources:
                 duplicate_of["extra_source_links"].append({"name": item["source"], "link": item["link"]})
@@ -885,285 +850,8 @@ def calculate_article_priority_and_sort_key(item):
     return priority_level
 
 # ==============================================================================
-# RSS HARVESTING (ZOWEL GOOGLE NEWS ALS RECHTSTREEKSE TURKSE KRANTEN-FEEDS)
+# HOOFDPROGRAMMA
 # ==============================================================================
-def fetch_google_rss_feed(args):
-    category_label, query, lang, max_items, max_days, extra_tickers, custom_kw = args
-    q_with_time = f"{query} when:{max_days}d" if max_days else query
-    q_enc = urllib.parse.quote(q_with_time)
-    if lang == "tr":
-        url = f"https://news.google.com/rss/search?q={q_enc}&hl=tr&gl=TR&ceid=TR:tr"
-    else:
-        url = f"https://news.google.com/rss/search?q={q_enc}&hl=nl&gl=NL&ceid=NL:nl"
-
-    items = []
-    now_utc = datetime.now(timezone.utc)
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            root = ET.fromstring(resp.read())
-
-        for item in root.findall(".//item"):
-            raw_title = item.findtext("title") or ""
-            link = item.findtext("link") or ""
-            pub_str = item.findtext("pubDate") or ""
-            raw_desc = item.findtext("description") or ""
-            source_el = item.find("source")
-            source_name = source_el.text if source_el is not None and source_el.text else ("Turkse Media" if lang == "tr" else "NL Media")
-
-            if not raw_title or not link:
-                continue
-
-            clean_title = raw_title.rsplit(" - ", 1)[0].strip() if " - " in raw_title else raw_title.strip()
-            clean_desc = clean_html_text(raw_desc)
-            if source_name in clean_desc:
-                clean_desc = clean_desc.replace(source_name, "").strip(" -·")
-
-            dt = now_utc
-            if pub_str:
-                try:
-                    parsed_dt = parsedate_to_datetime(pub_str)
-                    if parsed_dt:
-                        if parsed_dt.tzinfo is None:
-                            parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
-                        dt = parsed_dt
-                        diff_days = (now_utc - dt).total_seconds() / 86400.0
-                        if max_days is not None and diff_days > (max_days + 0.2):
-                            continue
-                except Exception:
-                    pass
-
-            if not is_economically_relevant(clean_title, clean_desc, extra_tickers, custom_kw):
-                continue
-
-            items.append({
-                "category": category_label,
-                "title_orig": clean_title,
-                "desc_orig": clean_desc,
-                "source": source_name,
-                "link": link,
-                "datetime": dt,
-                "date_str": dt.strftime("%d-%m-%Y %H:%M"),
-                "lang": lang
-            })
-            if len(items) >= max_items:
-                break
-    except Exception:
-        pass
-    return items
-
-def fetch_direct_newspaper_rss(args):
-    source_label, url, max_days, extra_tickers, custom_kw = args
-    items = []
-    now_utc = datetime.now(timezone.utc)
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            raw_bytes = resp.read()
-        root = ET.fromstring(raw_bytes)
-
-        for item in root.findall(".//item")[:18]:
-            raw_title = clean_html_text(item.findtext("title") or "")
-            link = (item.findtext("link") or "").strip()
-            pub_str = item.findtext("pubDate") or ""
-            raw_desc = clean_html_text(item.findtext("description") or "")
-
-            if not raw_title or not link:
-                continue
-
-            dt = now_utc
-            if pub_str:
-                try:
-                    parsed_dt = parsedate_to_datetime(pub_str)
-                    if parsed_dt:
-                        if parsed_dt.tzinfo is None:
-                            parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
-                        dt = parsed_dt
-                        diff_days = (now_utc - dt).total_seconds() / 86400.0
-                        if max_days is not None and diff_days > (max_days + 0.2):
-                            continue
-                except Exception:
-                    pass
-
-            if not is_economically_relevant(raw_title, raw_desc, extra_tickers, custom_kw):
-                continue
-
-            items.append({
-                "category": source_label,
-                "title_orig": raw_title,
-                "desc_orig": raw_desc[:350],
-                "source": source_label.replace("📰 ", "").replace(" (Direct)", ""),
-                "link": link,
-                "datetime": dt,
-                "date_str": dt.strftime("%d-%m-%Y %H:%M"),
-                "lang": "tr"
-            })
-            if len(items) >= 8:
-                break
-    except Exception:
-        pass
-    return items
-
-def enrich_articles_with_dutch_summaries(items, all_bist_codes):
-    def process_one(item):
-        if item["lang"] == "tr":
-            title_nl = translate_to_nl(item["title_orig"])
-            desc_nl = translate_to_nl(item["desc_orig"]) if item["desc_orig"] and len(item["desc_orig"]) > 15 else ""
-        else:
-            title_nl = item["title_orig"]
-            desc_nl = item["desc_orig"]
-
-        item["title_nl"] = title_nl
-        item["desc_nl"] = desc_nl
-
-        # Analyseer eerst semantiek en genoemde BIST-tickers
-        analyze_article_semantics(item, all_bist_codes)
-
-        jip_sum, econ_imp, card_cls, badge_html, sector_str, sent_type = build_jip_en_janneke_analysis(
-            item["title_orig"], title_nl, desc_nl, item["category"], item.get("_matched_tickers", set())
-        )
-        item["jip_summary"] = jip_sum
-        item["econ_impact"] = econ_imp
-        item["card_class"] = card_cls
-        item["badge_html"] = badge_html
-        item["sector_str"] = sector_str
-        item["sentiment_type"] = sent_type
-
-        calculate_article_priority_and_sort_key(item)
-        return item
-
-    with ThreadPoolExecutor(max_workers=10) as ex:
-        enriched = list(ex.map(process_one, items))
-    return enriched
-
-# --- AGENT 5: TOEKOMSTIGE 30-DAGEN MACRO AGENDA ---
-def get_upcoming_30_day_agenda():
-    today = datetime.now(timezone.utc).date()
-    end_date = today + timedelta(days=30)
-
-    scheduled_events = [
-        {
-            "date": datetime(2026, 10, 28, 19, 0, tzinfo=timezone.utc).date(),
-            "time_str": "28-10-2026 (21:00 TR)",
-            "title": "🇺🇸 Fed (FOMC) Rentebesluit & Persconferentie Jerome Powell",
-            "jip_summary": (
-                "**Wat gaat er gebeuren:** De Amerikaanse centrale bank (Fed) maakt haar nieuwe rentebesluit bekend, "
-                "gevolgd door de toelichting van voorzitter Jerome Powell."
-            ),
-            "econ_impact": (
-                "**Economisch vooruitzicht:** Dit is het belangrijkste wereldwijde moment van de week. "
-                "Een hint op lagere rentes is direct positief voor **Goud, Zilver** en opkomende markten zoals **Borsa İstanbul (BIST 100)**."
-            ),
-            "link": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
-        },
-        {
-            "date": datetime(2026, 10, 29, 9, 0, tzinfo=timezone.utc).date(),
-            "time_str": "29-10-2026 (Hele dag)",
-            "title": "🇹🇷 Cumhuriyet Bayramı (Dag van de Republiek) — Borsa İstanbul Gesloten",
-            "jip_summary": (
-                "**Wat gaat er gebeuren:** Vanwege de nationale feestdag in Turkije is **Borsa İstanbul (BIST)** op 29 oktober gesloten."
-            ),
-            "econ_impact": (
-                "**Economisch vooruitzicht:** Handelaren verkopen voor de feestdag vaak een deel van hun aandelen om geen kredietrente over de vrije dagen te betalen."
-            ),
-            "link": "https://www.borsaistanbul.com/tr/sayfa/143/resmi-tatil-gunleri"
-        },
-        {
-            "date": datetime(2026, 11, 3, 7, 0, tzinfo=timezone.utc).date(),
-            "time_str": "03-11-2026 (10:00 TR)",
-            "title": "🇹🇷 TÜİK Turkse Inflatiecijfers (CPI / TÜFE Oktober)",
-            "jip_summary": (
-                "**Wat gaat er gebeuren:** Het Turkse statistiekbureau (TÜİK) publiceert de officiële maandelijkse en jaarlijkse inflatiecijfers over oktober."
-            ),
-            "econ_impact": (
-                "**Economisch vooruitzicht:** Bepaalt of de Turkse Centrale Bank (TCMB) de rente kan verlagen. "
-                "Valt de inflatie lager uit, dan schieten **BIST 100 bankaandelen** omhoog."
-            ),
-            "link": "https://www.tuik.gov.tr/"
-        },
-        {
-            "date": datetime(2026, 11, 6, 7, 30, tzinfo=timezone.utc).date(),
-            "time_str": "06-11-2026 (10:30 TR)",
-            "title": "🇹🇷 TCMB 4e Inflatieverslag (Enflasyon Raporu) — Toespraak Fatih Karahan",
-            "jip_summary": (
-                "**Wat gaat er gebeuren:** De gouverneur van de Turkse Centrale Bank presenteert de nieuwe inflatievoorspellingen."
-            ),
-            "econ_impact": (
-                "**Economisch vooruitzicht:** Beleggers letten op signalen over het rentepad en de Lira."
-            ),
-            "link": "https://www.tcmb.gov.tr/"
-        },
-        {
-            "date": datetime(2026, 11, 9, 15, 0, tzinfo=timezone.utc).date(),
-            "time_str": "09-11-2026 (18:00 TR)",
-            "title": "🇹🇷 KAP Deadline Q3 2026 Kwartaalcijfers (Niet-Geconsolideerde BIST Bedrijven)",
-            "jip_summary": (
-                "**Wat gaat er gebeuren:** Laatste dag waarop niet-geconsolideerde beursbedrijven hun derdekwartaalcijfers publiceren op KAP."
-            ),
-            "econ_impact": (
-                "**Economisch vooruitzicht:** Zorgt voor koersbewegingen per individueel aandeel op basis van winstmarges."
-            ),
-            "link": "https://www.kap.org.tr/"
-        },
-        {
-            "date": datetime(2026, 11, 11, 13, 30, tzinfo=timezone.utc).date(),
-            "time_str": "11-11-2026 (16:30 TR)",
-            "title": "🇺🇸 Amerikaanse Inflatiecijfers (US CPI Oktober)",
-            "jip_summary": (
-                "**Wat gaat er gebeuren:** Publicatie van de Amerikaanse consumentenprijzen."
-            ),
-            "econ_impact": (
-                "**Economisch vooruitzicht:** Directe koersbepaler voor **Goud en Zilver**. Lagere Amerikaanse inflatie stuwt edelmetalen."
-            ),
-            "link": "https://www.bls.gov/cpi/"
-        },
-        {
-            "date": datetime(2026, 11, 19, 11, 0, tzinfo=timezone.utc).date(),
-            "time_str": "19-11-2026 (14:00 TR)",
-            "title": "🇹🇷 TCMB Rentebesluit (PPK Toplantısı & Faiz Kararı)",
-            "jip_summary": (
-                "**Wat gaat er gebeuren:** Het Monetair Beleidscomité van de Turkse Centrale Bank maakt het rentebesluit bekend."
-            ),
-            "econ_impact": (
-                "**Economisch vooruitzicht:** Hét belangrijkste binnenlandse macro-moment voor de **USD/TRY wisselkoers**, **Gram Goud** en de **BIST 100 Index**."
-            ),
-            "link": "https://www.tcmb.gov.tr/"
-        },
-        {
-            "date": datetime(2026, 11, 20, 15, 0, tzinfo=timezone.utc).date(),
-            "time_str": "20-11-2026 (18:00 TR)",
-            "title": "🇹🇷 KAP Deadline Q3 2026 Geconsolideerde Kwartaalcijfers (Holdings & Banken)",
-            "jip_summary": (
-                "**Wat gaat er gebeuren:** Uiterste datum waarop grote holdings (KCHOL, SAHOL) hun volledige kwartaalcijfers bekendmaken."
-            ),
-            "econ_impact": (
-                "**Economisch vooruitzicht:** Sluit het cijferseizoen af en bepaalt de leiders in de **BIST 100** richting het jaareinde."
-            ),
-            "link": "https://www.kap.org.tr/"
-        }
-    ]
-
-    future_events = [ev for ev in scheduled_events if today <= ev["date"] <= end_date]
-    future_events.sort(key=lambda x: x["date"])
-    return future_events
-
-# --- LIVE MARKT TICKER BAR (10 INDICATOREN INCLUSIEF GRAM GOUD & GRAM ZILVER) ---
-st.markdown("### 📊 Live Marktoverzicht (BIST 100, Valuta & Edelmetalen in $ en ₺)")
-market_data = get_live_market_snapshot()
-market_items = list(market_data.items())
-
-for row_slice in [market_items[:5], market_items[5:10]]:
-    cols = st.columns(len(row_slice))
-    for i, (name, info) in enumerate(row_slice):
-        with cols[i]:
-            if info["price"] is not None:
-                st.metric(label=name, value=f"{info['price']:,.2f}", delta=f"{info['change']:+.2f}%")
-            else:
-                st.metric(label=name, value="N/B")
-
-st.markdown("---")
-
-# --- HOOFDPROGRAMMA ---
 if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koers-Chips)", type="primary"):
     is_bist100_general = BIST_INDEX_OPTION in selected_tickers
     tickers_clean = [t.split(" ")[0] for t in selected_tickers if t != BIST_INDEX_OPTION]
@@ -1224,7 +912,6 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
             )
         ]
 
-        # Als de gebruiker een eigen zoekopdracht in de zijbalk heeft ingevuld, scan daar direct specifiek op
         if custom_search_query and custom_search_query.strip():
             q_clean = custom_search_query.strip()
             rss_tasks.insert(0, (
@@ -1261,19 +948,16 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
         total_raw_count = len(raw_all_items)
         master_enriched = enrich_articles_with_dutch_summaries(raw_all_items, all_bist_codes)
 
-        # Inhoudelijke & Persoons-bewuste Ontdubbeling
         is_max_mode = dedup_strictness.startswith("Maximaal")
         master_enriched = deduplicate_by_semantic_content(master_enriched, max_mode=is_max_mode)
         removed_dups_count = total_raw_count - len(master_enriched)
 
-        # Verzamel alle genoemde BIST-tickers in de overgebleven artikelen (+ geselecteerde tickers) voor live koers/RSI/S1/R1 badges
         all_mentioned_tickers = set(tickers_clean[:12])
         for it in master_enriched:
             for tk in it.get("_matched_tickers", set()):
                 all_mentioned_tickers.add(tk)
         stock_tech_map = get_bist_technical_snapshots(tuple(sorted(all_mentioned_tickers)[:25]))
 
-        # Sortering volgens keuze in zijbalk
         if sort_mode == "Puur op Datum (Allernieuwste bovenaan)":
             master_enriched.sort(key=lambda x: -x["datetime"].timestamp())
         else:
@@ -1297,7 +981,7 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
         warn_count = sum(1 for x in master_enriched if x.get("sentiment_type") == "warn")
 
     st.success(
-        f"✅ Ultimate Master Analyse voltooid! Van de **{total_raw_count}** opgehaalde berichten (Google News + directe Turkse kranten-feeds) "
+        f"✅ Ultimate Master Analyse voltooid! Van de **{total_raw_count}** opgehaalde berichten "
         f"zijn **{removed_dups_count} dubbele berichten samengevoegd**. Er staan nu **{len(master_enriched)} unieke dossiers** klaar."
     )
 
@@ -1315,7 +999,6 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
     with tab1:
         st.markdown("### 🌐 Agent 1: Master News Hub (Met Live Aandelen-Chips & Inhoudelijke Ontdubbeling)")
 
-        # Live Marktsentiment Thermometer Balk
         s_col1, s_col2, s_col3, s_col4 = st.columns(4)
         s_col1.metric("🟢 Positieve Katalysatoren", f"{pos_count} dossiers")
         s_col2.metric("🔴 Hoog Risico / Schandaal / Druk", f"{neg_count} dossiers")
@@ -1359,7 +1042,6 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
         if filtered_master:
             export_lines = [f"# BIST 100 & Turkse Economie Master Rapport ({datetime.now().strftime('%d-%m-%Y %H:%M')})\n"]
             for idx, item in enumerate(filtered_master, 1):
-                # Bouw live koers/RSI/steun-weerstand chips voor elk genoemd aandeel in dit artikel
                 chips_html_list = []
                 for tk in sorted(item.get("_matched_tickers", set())):
                     snap = stock_tech_map.get(tk)
@@ -1374,10 +1056,9 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
                         )
                 stock_chips_row = f"<div style='margin: 6px 0;'>{''.join(chips_html_list)}</div>" if chips_html_list else ""
 
-                # Klikbare links naar andere kranten die exact hetzelfde onderwerp meldden
                 extra_links = item.get("extra_source_links", [])
                 if extra_links:
-                    links_ anchors = " · ".join([
+                    links_anchors = " · ".join([
                         f'<a href="{es["link"]}" target="_blank" style="color: #334155; text-decoration: underline;">{es["name"]}</a>'
                         for es in extra_links[:5]
                     ])
@@ -1426,13 +1107,13 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
             st.warning("Geen artikelen gevonden voor dit filter.")
 
     # ==========================================================================
-    # TAB 2: AGENT 2 — FACT-CHECK & LIVE TECHNISCHE MATRIX VAN GEKOZEN AANDELEN
+    # TAB 2: AGENT 2 — FACT-CHECK & TECHNISCHE MATRIX
     # ==========================================================================
     with tab2:
         st.markdown("### 🕵️‍♂️ Agent 2: De Waarheids-Filter & Live Technische Aandelen-Matrix")
         st.markdown(
-            f"- ✅ **Dubbele Bron-laag Actief:** Google News RSS + rechtstreekse Turkse kranten-feeds (*Bloomberg HT, NTV, Habertürk, CNN Türk, Dünya, Cumhuriyet, T24*).\n"
-            f"- ✅ **Slimme Persoons- & Dossier-Ontdubbeling:** Van de `{total_raw_count}` artikelen zijn `{removed_dups_count}` berichten met dezelfde strekking samengevoegd, terwijl verschillende zaken met andere eigennamen apart behouden blijven.\n"
+            f"- ✅ **Dubbele Bron-laag Actief:** Google News RSS + rechtstreekse Turkse kranten-feeds.\n"
+            f"- ✅ **Slimme Persoons- & Dossier-Ontdubbeling:** Van de `{total_raw_count}` artikelen zijn `{removed_dups_count}` berichten met dezelfde strekking samengevoegd.\n"
             f"- ✅ **Koersdata Verificatie:** BIST 100 (`{bist_p:,.0f}`), USD/TRY (`₺{usd_p:,.2f}`), Gram Goud (`₺{gram_p:,.2f}`) en Gram Zilver (`₺{gram_silv_p:,.2f}`)."
         )
 
@@ -1498,4 +1179,4 @@ if st.button("🚀 Start Ultimate Master Analyse (Inclusief Directe Feeds & Koer
             st.info("Geen geplande macro-evenementen gevonden binnen de komende 30 dagen.")
 
 else:
-    st.info("👈 Kies in de zijbalk je instellingen (of typ een vrije zoekopdracht) en klik op **Start Ultimate Master Analyse**.")
+    st.info("👈 Kies in la zijbalk je instellingen (of typ een vrije zoekopdracht) en klik op **Start Ultimate Master Analyse**.")
