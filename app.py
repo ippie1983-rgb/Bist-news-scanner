@@ -24,8 +24,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 6-Agent Nieuwsscanner (Artikel-Samenvattingen)</p>', unsafe_allow_html=True)
-st.markdown("Turkse media-analyse waarbij elk artikel direct is voorzien van een **korte samenvatting per link** (max 3 dagen oud) en een toekomstige 30-dagen Macro-Agenda.")
+st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 6-Agent Nieuwsscanner</p>', unsafe_allow_html=True)
+st.markdown("Live nieuws, **artikel-samenvattingen per bronlink** (max 3 dagen oud) en een **toekomstige 30-dagen Macro-Agenda**.")
 
 # --- ZIJBALK: INSTELLINGEN ---
 if "gemini_auth" not in st.session_state:
@@ -39,7 +39,7 @@ st.session_state.gemini_auth = st.sidebar.text_input(
     value=st.session_state.gemini_auth,
     help="Staat standaard ingesteld."
 )
-st.sidebar.success("✅ Artikel-Samenvattingen & 6-Agent Engine actief!")
+st.sidebar.success("✅ Systeem stabiel & actief!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Aandelen Selectie (Agent 1)")
@@ -208,27 +208,27 @@ def call_gemini_with_fallback(prompt_text, system_instruction, fallback_text):
     return fallback_text
 
 # --- HOOFDPROGRAMMA ---
-st.markdown("### 🤖 Start de 6-Agent Top-Media Scanner (Artikel-Samenvattingen)")
-st.markdown("Druk op de knop om de analyse te starten waarin elk artikel direct wordt samengevat.")
+st.markdown("### 🤖 Start de 6-Agent Top-Media Scanner")
+st.markdown("Druk op de knop om de analyse te starten met artikel-samenvattingen per bronlink.")
 
-if st.button("🚀 Start 6-Agent Analyse met Artikel-Samenvattingen", type="primary"):
+if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     tickers_clean = [t.split(" ")[0] for t in selected_tickers] if selected_tickers else ["THYAO", "ASELS", "KCHOL"]
     tickers_str = ", ".join(tickers_clean)
 
-    with st.spinner("📡 Live ophalen van artikelen en marktomstandigheden (max 3 dagen)..."):
+    with st.spinner("📡 Live ophalen van artikelen en marktomstandigheden..."):
         stock_snaps = get_stock_snapshots(tickers_clean)
         
-        tr_econ_items = fetch_news_strict("Turkiye ekonomi Borsa Istanbul TCMB Mehmet Simsek", "tr", 10, max_days=3)
-        tr_spk_items = fetch_news_strict("SPK ceza sorusturma borsa operasyon fon", "tr", 8, max_days=3)
+        tr_econ_items = fetch_news_strict("Turkiye ekonomi Borsa Istanbul TCMB", "tr", 10, max_days=3)
+        tr_spk_items = fetch_news_strict("SPK ceza sorusturma borsa operasyon", "tr", 8, max_days=3)
         
         stock_news_dict = {}
         for c in tickers_clean:
-            stock_news_dict[c] = fetch_news_strict(f"{c} hisse KAP sirket bilanco", "tr", 5, max_days=3)
+            stock_news_dict[c] = fetch_news_strict(f"{c} hisse KAP", "tr", 5, max_days=3)
         
         nl_war_items = fetch_news_strict("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 8, max_days=3)
-        nl_gold_items = fetch_news_strict("goudprijs zilverprijs Fed rente inflatie", "nl", 8, max_days=3)
+        nl_gold_items = fetch_news_strict("goudprijs zilverprijs Fed rente", "nl", 8, max_days=3)
         
-        agenda_items = fetch_news_strict("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon takvim", "tr", 10, max_days=None)
+        agenda_items = fetch_news_strict("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon", "tr", 10, max_days=None)
         agenda_items = sorted(agenda_items, key=lambda x: x["datetime"])
 
         bist_p = market_data.get("BIST 100", {}).get("price") or 0.0
@@ -239,29 +239,24 @@ if st.button("🚀 Start 6-Agent Analyse met Artikel-Samenvattingen", type="prim
         silv_p = market_data.get("Zilver Ons ($)", {}).get("price") or 0.0
         vix_p = market_data.get("VIX (Angst)", {}).get("price") or 0.0
 
-    # Verzamel alle Turkse items voor Agent 1
     all_tr_items = tr_econ_items + tr_spk_items
     for c in tickers_clean:
         all_tr_items.extend(stock_news_dict.get(c, []))
 
-    # --- AGENT 1: Grondige Artikel-Samenvattingen per Link ---
-    with st.spinner("🇹🇷 Agent 1: Korte samenvattingen per artikel genereren..."):
+    # --- AGENT 1: Samenvatting per artikel met behoud van links ---
+    with st.spinner("🇹🇷 Agent 1: Artikel-samenvattingen genereren..."):
         titles_and_links_block = "\n".join([f"- Titel: {item['title']} | Link: {item['link']}" for item in all_tr_items]) if all_tr_items else "Geen artikelen."
         
-        fallback_agent1 = (
-            f"### 🇹🇷 Turkije & BIST Overzicht\n\n"
-            f"- **BIST 100 Index:** {bist_p:,.0f} ({bist_c:+.2f}%)\n"
-            f"- **USD/TRY Lira:** ₺{usd_p:,.2f}\n"
-        )
+        fallback_agent1 = f"### 🇹🇷 Turkije & BIST Overzicht\n\n- **BIST 100:** {bist_p:,.0f} | **USD/TRY:** ₺{usd_p:,.2f}"
         prompt_agent1 = (
-            "Jij bent Agent 1: BIST, Türkiye & Nieuws Intelligence Agent.\n"
+            "Jij bent Agent 1: BIST & Nieuws Intelligence Agent.\n"
             "Hier is een lijst met recente artikelen (koppen en links) van de afgelopen 3 dagen uit de Turkse media:\n"
             f"{titles_and_links_block}\n\n"
-            f"OPDRACHT:\n"
-            "Ga al deze artikelen één voor één langs. Schrijf per artikel een duidelijke, krachtige samenvatting in normale mensentaal (Jip-en-Janneketaal) waarin je uitlegt wat de kern van het nieuws is en wat dit betekent voor de belegger.\n"
-            "Zorg ervoor dat je onder elke samenvatting exact de bijbehorende bronlink plaatst, zodat de gebruiker direct per artikel kan zien waar het over gaat en kan doorklikken."
+            "OPDRACHT:\n"
+            "Ga al deze artikelen langs. Schrijf per artikel een duidelijke, krachtige samenvatting in Jip-en-Janneketaal over wat dit betekent voor de belegger.\n"
+            "Zorg ervoor dat je onder elke samenvatting exact de bijbehorende bronlink plaatst."
         )
-        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een deskundige Turkse marktexpert die elk artikel apart samenvat met behoud van de bronlink.", fallback_agent1)
+        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een Turkse marktexpert.", fallback_agent1)
 
     # --- AGENT 2 ---
     with st.spinner("🌍 Agent 2: Globaal & Edelmetalen..."):
@@ -287,10 +282,10 @@ if st.button("🚀 Start 6-Agent Analyse met Artikel-Samenvattingen", type="prim
         prompt_agent5 = "Jij bent Agent 5. Voer risico-audit uit."
         agent5_output = call_gemini_with_fallback(prompt_agent5, "Je bent risicocontroleur.", fallback_agent5)
 
-    # --- AGENT 6: Toekomstige 30-Dagen Macro Agenda ---
+    # --- AGENT 6: Toekomstige 30-Dagen Macro Agenda (Oplopend) ---
     with st.spinner("📅 Agent 6: Toekomstige 30-Dagen Macro Agenda genereren..."):
         agenda_titles = "\n".join([f"- [{item['date']}] {item['title']} | Link: {item['link']}" for item in agenda_items]) if agenda_items else "Geen agenda-items."
-        fallback_agent6 = f"### 📅 Toekomstige 30-Dagen Macro Agenda\n\nGeplande publicaties en besluiten voor de komende tijd."
+        fallback_agent6 = "### 📅 Toekomstige 30-Dagen Macro Agenda\n\nGeplande publicaties en besluiten."
         prompt_agent6 = (
             "Jij bent Agent 6: De Toekomstige Macro-Agenda Samenvatter.\n"
             "Hier zijn de chronologisch gesorteerde koppen en links van de komende agenda-artikelen:\n"
@@ -300,10 +295,10 @@ if st.button("🚀 Start 6-Agent Analyse met Artikel-Samenvattingen", type="prim
         agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent een macro-economisch analist en agenda-expert.", fallback_agent6)
 
     # --- TOON RESULTATEN IN TABS ---
-    st.success("✅ Analyse met artikel-samenvattingen succesvol afgerond!")
+    st.success("✅ Analyse succesvol afgerond!")
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "🇹🇷 Agent 1: BIST (Samenvattingen)",
+        "🇹🇷 Agent 1: BIST",
         "🌍 Agent 2: Globaal",
         "🕵️‍♂️ Agent 3: Fact-Check",
         "💡 Agent 4: Advies",
@@ -343,4 +338,4 @@ if st.button("🚀 Start 6-Agent Analyse met Artikel-Samenvattingen", type="prim
         st.markdown(agent6_output)
 
 else:
-    st.info("👈 Kies je aandelen in de zijbalk en klik op de knop om de analyse met artikel-samenvattingen te starten!")
+    st.info("👈 Kies je aandelen in de zijbalk en klik op de knop om de analyse te starten!")
