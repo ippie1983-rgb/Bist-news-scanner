@@ -53,7 +53,7 @@ BIST_100_STOCKS = [
     "MAVI (Mavi Giyim)", "MGROS (Migros)", "MIATK (Mia Teknoloji)", "OBAMS (Oba Makarnacılık)",
     "ODAS (Odaş Elektrik)", "OTKAR (Otokar)", "OYAKC (Oyak Çimento)", "PASEU (Pasifik Eurasia Lojistik)",
     "PEKGY (Peker GYO)", "PETKM (Petkim)", "PGSUS (Pegasus)", "QUAGR (Qua Granite)",
-    "REEDR (Reeder Teknoloji)", "SAHOL (Sabancı Holding)", "SASA (Sasa Polyester)", "SDTTR (SDT Uzay ve Savunma)",
+    "REEDR (Reeder Teknoloji)", "SAHOL (Sabancı Holding)", "SASA (Sasa Polyester)", "SDTTR (SDT Uzay en Savunma)",
     "SISE (Şişecam)", "SKBNK (Şekerbank)", "SMRTG (Smart Güneş Enerjisi)", "SOKM (Şok Marketler)",
     "TABGD (TAB Gıda)", "TAVHL (TAV Havalimanları)", "TCELL (Turkcell)", "THYAO (Turkish Airlines)",
     "TKFEN (Tekfen Holding)", "TOASO (Tofaş Oto)", "TTKOM (Türk Telekom)", "TUPRS (Tüpraş)",
@@ -784,7 +784,7 @@ def calculate_article_priority_and_sort_key(item):
     return priority_level
 
 # ==============================================================================
-# HOOFDPROGRAMMA MET STATE MANAGEMENT (VOORKOMT WISSEN BIJ TABS/FILTERS)
+# HOOFDPROGRAMMA
 # ==============================================================================
 st.markdown("### 📊 Live Marktoverzicht (BIST 100, Valuta & Edelmetalen in $ en ₺)")
 market_data = get_live_market_snapshot()
@@ -932,14 +932,13 @@ if st.button("🚀 Start Volledige Master Analyse", type="primary"):
 
         upcoming_agenda = get_upcoming_30_day_agenda()
 
-        # Opslaan in session state zodat filters/tabs de data niet wissen
         st.session_state.master_enriched = master_enriched
         st.session_state.total_raw_count = total_raw_count
         st.session_state.removed_dups_count = removed_dups_count
         st.session_state.stock_tech_map = stock_tech_map
         st.session_state.upcoming_agenda = upcoming_agenda
 
-# Render de resultaten als ze in de session state aanwezig zijn
+# Render resultaten vanuit session_state zodat filters/tabs de data niet wissen
 if st.session_state.master_enriched is not None:
     master_enriched = st.session_state.master_enriched
     total_raw_count = st.session_state.total_raw_count
@@ -1102,7 +1101,7 @@ if st.session_state.master_enriched is not None:
         st.markdown("### 💡 Agent 3: Concreet Beleggingsadvies in Jip-en-Janneketaal")
         st.markdown(
             "- **Gebruik de nieuwe Koers/RSI-chips in Agent 1:** Zie je positief KAP-nieuws bij een BIST 100-aandeel waarvan de **RSI tussen 35 en 60** ligt en de koers boven Steun **S1** noteert? Dat biedt technisch de veiligste instap.\n"
-            "- **Vermijd Prio-1 Schandaalfondsen:** Blijf weg bij kleine fondsen die in een SPK-handelsverbod of manipulatie-onderzoek zitten."
+            "- **Vermijd Prio-1 Schandaalfondsen:** Blijf weg bij kleine fondsen die in een SPK-handelsverbod zitten."
         )
 
     with tab4:
@@ -1114,7 +1113,7 @@ if st.session_state.master_enriched is not None:
         )
 
     with tab5:
-        st.markdown("### 📅 Agent 5: Toekomstige 30-Dagen Macro-Agenda (Oplopend)")
+        st.markdown("### 📅 Agent 5: Toekomstige 30-DAGEN Macro-Agenda (Oplopend)")
         if upcoming_agenda:
             for idx, ev in enumerate(upcoming_agenda, 1):
                 days_left = (ev["date"] - datetime.now(timezone.utc).date()).days
