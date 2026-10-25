@@ -46,7 +46,7 @@ BIST_100_STOCKS = [
     "EUPWR (Europower Enerji)", "EUREN (Europen Endüstri)", "FROTO (Ford Otosan)", "GARAN (Garanti BBVA)",
     "GESAN (Girişim Elektrik)", "GOLTS (Göltaş Çimento)", "GUBRF (Gübre Fabrikaları)", "GWIND (Galata Wind)",
     "HALKB (Halkbank)", "HEKTS (Hektaş)", "IMASM (İmaş Makina)", "IPEKE (İpek Doğal Enerji)",
-    "ISCTR (İş Bankası C)", "ISDMR (İskenderun Demir Çelik)", "ISGYO (İş GYO)", "ISMEN (İş Yatırım)",
+    "ISCTR (İş Bankası C)", "ISDMR (İskenderun Demir Çelik)", "ISGYO (IS GYO)", "ISMEN (İş Yatırım)",
     "KAYSE (Kayseri Şeker)", "KCAER (Kocaer Çelik)", "KCHOL (Koç Holding)", "KLSER (Kaleseramik)",
     "KONTR (Kontrolmatik)", "KONYA (Konya Çimento)", "KORDS (Kordsa)", "KOZAA (Koza Anadolu Metal)",
     "KOZAL (Koza Altın)", "KRDMD (Kardemir D)", "KTLEV (Katılımevim)", "LMKDC (Limak Doğu Anadolu Çimento)",
@@ -649,16 +649,16 @@ def detect_sector_and_badge(combined_text, mentioned_stocks):
     sector_str = " · ".join(sectors[:3])
 
     if any(w in combined_text for w in ["tutuklama", "gözaltı", "soruşturma", "ceza", "işlem yasağı", "brüt takas", "kayyum", "skandal", "vurgun", "yaptırım", "zarar", "düşüş", "ev hapsi", "huisarrest", "konutu terk etmeme"]):
-        badge_html = '<span class="badge-neg">🔴 HOOG RISICO / KOERSDRUK OP SPECULATIEVE FONDSEN</span>'
+        badge_html = "🔴 HOOG RISICO / KOERSDRUK OP SPECULATIEVE FONDSEN"
         sentiment_type = "neg"
     elif any(w in combined_text for w in ["rekor kar", "temettü", "bedelsiz", "ihale", "anlaşma", "not artışı", "yabancı girişi", "büyüme", "yatırım"]):
-        badge_html = '<span class="badge-pos">🟢 POSITIEVE KATALYSATOR VOOR KOERS</span>'
+        badge_html = "🟢 POSITIEVE KATALYSATOR VOOR KOERS"
         sentiment_type = "pos"
     elif any(w in combined_text for w in ["resmi gazete", "vergi", "ötv", "faiz kararı", "enflasyon", "trump", "fed"]):
-        badge_html = '<span class="badge-warn">⚠️ BELEID & MACRO-IMPACT OP BIST 100</span>'
+        badge_html = "⚠️ BELEID & MACRO-IMPACT OP BIST 100"
         sentiment_type = "warn"
     else:
-        badge_html = '<span class="badge-info">⚖️ MARKT- & ANALISTEN DUIDING</span>'
+        badge_html = "⚖️ MARKT- & ANALISTEN DUIDING"
         sentiment_type = "info"
 
     return badge_html, sector_str, sentiment_type
@@ -669,93 +669,93 @@ def build_jip_en_janneke_analysis(title_orig, title_nl, desc_nl, category_tag, m
 
     if any(w in combined for w in ["brüt takas", "işlem yasağı", "tedbir", "spk bülteni", "bedelsiz", "bedelli", "sermaye artırımı"]):
         jip_summary = (
-            f"**Wat is er aan de hand:** Beurswaakhond SPK of Borsa İstanbul heeft een officieel besluit genomen: *{title_nl}*. "
+            f"Beurswaakhond SPK of Borsa İstanbul heeft een officieel besluit genomen: *{title_nl}*. "
             f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Dit gaat over handelsrestricties of goedkeuring van een aandelensplitsing.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Beursimpact:** Bij een **handelsverbod of brüt takas** droogt de speculatieve handel op. "
+            f"Bij een **handelsverbod of brüt takas** droogt de speculatieve handel op. "
             f"Een goedgekeurde **gratis aandelensplitsing (bedelsiz)** wekt daarentegen vaak enthousiasme bij particuliere beleggers."
         )
-        card_class = "scandal-card" if ("yasağı" in combined or "brüt" in combined or "ceza" in combined) else "positive-card"
+        card_type = "scandal" if ("yasağı" in combined or "brüt" in combined or "ceza" in combined) else "positive"
 
     elif any(w in combined for w in ["fon", "spk", "manipülasyon", "manipulatie", "tutuklama", "gözaltı", "aangehouden", "gearresteerd", "tasfiye", "tmsf", "mal varlığı", "soruşturma", "onderzoek", "ev hapsi", "huisarrest", "konutu terk etmeme", "elektronik kelepçe"]):
         jip_summary = (
-            f"**Wat is er aan de hand:** Justitie en beurswaakhond SPK grijpen in bij lopende onderzoeken en maatregelen zoals huisarrest, enkelband of arrestaties: *{title_nl}*. "
+            f"Justitie en beurswaakhond SPK grijpen in bij lopende onderzoeken en maatregelen zoals huisarrest, enkelband of arrestaties: *{title_nl}*. "
             f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Er vinden juridische stappen, huisarresten of ondervragingen plaats rondom betrokken partijen.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Beursimpact:** Dit soort juridische maatregelen zorgt voor onrust bij speculatieve fondsen. "
+            f"Dit soort juridische maatregelen zorgt voor onrust bij speculatieve fondsen. "
             f"Voor de gevestigde **BIST 100-bedrijven** zuivert dit de markt en ondersteunt het op termijn het vertrouwen van grote instellingen."
         )
-        card_class = "scandal-card"
+        card_type = "scandal"
 
     elif any(w in combined for w in ["resmi gazete", "cumhurbaşkanı kararı", "ötv", "vergi", "görevden alma", "atama kararları"]):
         jip_summary = (
-            f"**Wat is er aan de hand:** Nieuw officieel overheidsbesluit gepubliceerd in het Turkse Staatsblad (*Resmi Gazete*): *{title_nl}*. "
+            f"Nieuw officieel overheidsbesluit gepubliceerd in het Turkse Staatsblad (*Resmi Gazete*): *{title_nl}*. "
             f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Nieuwe wetgeving, belastingmaatregelen of benoemingen zijn van kracht geworden.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Beursimpact:** Besluiten in de *Resmi Gazete* hebben direct effect bij beursopening. "
+            f"Besluiten in de *Resmi Gazete* hebben direct effect bij beursopening. "
             f"Belastingverhogingen raken specifieke sectoren, terwijl nieuwe steunmaatregelen koerswinst stimuleren."
         )
-        card_class = "news-card"
+        card_type = "news"
 
     elif any(w in combined for w in ["mahfi eğilmez", "özgür demirtaş", "emre alkin", "hakan kara", "islam memiş", "ışık ökte", "tunç şatıroğlu"]):
         jip_summary = (
-            f"**Wat is er aan de hand:** Een vooraanstaande Turkse econoom of marktstrateeg deelt een scherpe analyse: *{title_nl}*. "
+            f"Een vooraanstaande Turkse econoom of marktstrateeg deelt een scherpe analyse: *{title_nl}*. "
             f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Onafhankelijke duiding over inflatie, rente of de goudmarkt.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Beursimpact:** Deze economen worden op de voet gevolgd door beleggers. "
+            f"Deze economen worden op de voet gevolgd door beleggers. "
             f"Hun waarschuwingen sturen direct het dagelijkse sentiment op de **BIST 100**."
         )
-        card_class = "news-card"
+        card_type = "news"
 
     elif any(w in combined for w in ["cds", "yabancı yatırımcı", "yabancı takas", "fitch", "moody", "s&p", "kredi notu"]):
         jip_summary = (
-            f"**Wat is er aan de hand:** Belangrijk signaal over het vertrouwen van internationale beleggers in Turkije: *{title_nl}*. "
+            f"Belangrijk signaal over het vertrouwen van internationale beleggers in Turkije: *{title_nl}*. "
             f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Nieuws over de Turkse CDS-risicopremie of buitenlandse kapitaalstromen.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Beursimpact:** Grote buitenlandse fondsen kopen de zwaargewichten in de **BIST 100**. "
+            f"Grote buitenlandse fondsen kopen de zwaargewichten in de **BIST 100**. "
             f"Een dalende CDS-premie of buitenlandse instroom is de sterkste brandstof voor een brede beursrally."
         )
-        card_class = "positive-card" if any(w in combined for w in ["giriş", "artış", "düşüş", "olumlu", "not artışı"]) else "news-card"
+        card_type = "positive" if any(w in combined for w in ["giriş", "artış", "düşüş", "olumlu", "not artışı"]) else "news"
 
     elif any(w in combined for w in ["belediye", "burgemeester", "kayyum", "görevden alındı", "ontslagen", "erdoğan", "chp", "ak parti", "siyaset", "meclis"]):
         jip_summary = (
-            f"**Wat is er aan de hand:** Politieke of bestuurlijke ontwikkeling in Turkije: *{title_nl}*. "
+            f"Politieke of bestuurlijke ontwikkeling in Turkije: *{title_nl}*. "
             f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Politieke spanningen of juridische stappen tegen bestuurders.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Beursimpact:** Politieke onrust zorgt ervoor dat beleggers tijdelijk op de rem trappen. "
+            f"Politieke onrust zorgt ervoor dat beleggers tijdelijk op de rem trappen. "
             f"Banken en holdings reageren hier gevoelig op, terwijl men vaker schuilt in **Gram Goud** en **USD/TRY**."
         )
-        card_class = "scandal-card"
+        card_type = "scandal"
 
     elif any(w in combined for w in ["trump", "abd", "vs", "amerika", "yaptırım", "sanctie", "israil", "iran", "rusya", "oorlog", "midden-oosten", "navo", "nato"]):
         jip_summary = (
-            f"**Wat is er aan de hand:** Geopolitiek en diplomatiek nieuws met marktimpact: *{title_nl}*. "
+            f"Geopolitiek en diplomatiek nieuws met marktimpact: *{title_nl}*. "
             f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Ontwikkelingen rond de VS/Trump, sancties of regionale spanningen.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Beursimpact:** Spanningen met de VS of onrust in het Midden-Oosten drijven de prijs van **Goud en Zilver** op. "
+            f"Spanningen met de VS of onrust in het Midden-Oosten drijven de prijs van **Goud en Zilver** op. "
             f"Op de BIST 100 profiteert defensie (**ASELS**), terwijl luchtvaart last kan krijgen van duurdere kerosine."
         )
-        card_class = "news-card"
+        card_type = "news"
 
     else:
         jip_summary = (
-            f"**Wat is er aan de hand:** Economisch en financieel nieuws: *{title_nl}*. "
+            f"Economisch en financieel nieuws: *{title_nl}*. "
             f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Actuele berichtgeving over beleid, kwartaalcijfers (KAP) of de handel op Borsa İstanbul.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Beursimpact:** Geeft directe richting aan de waardering van **BIST 100-aandelen**. "
+            f"Geeft directe richting aan de waardering van **BIST 100-aandelen**. "
             f"Dalende inflatie en sterke cijfers ondersteunen de koersen."
         )
-        card_class = "news-card"
+        card_type = "news"
 
-    return jip_summary, econ_impact, card_class, badge_html, sector_str, sentiment_type
+    return jip_summary, econ_impact, card_type, badge_html, sector_str, sentiment_type
 
 def calculate_article_priority_and_sort_key(item):
     cat = item.get("category", "")
@@ -922,7 +922,7 @@ def enrich_articles_with_dutch_summaries(items, all_bist_codes):
         )
         item["jip_summary"] = jip_sum
         item["econ_impact"] = econ_imp
-        item["card_class"] = card_cls
+        item["card_type"] = card_cls
         item["badge_html"] = badge_html
         item["sector_str"] = sector_str
         item["sentiment_type"] = sent_type
@@ -945,11 +945,11 @@ def get_upcoming_30_day_agenda():
             "time_str": "28-10-2026 (21:00 TR)",
             "title": "🇺🇸 Fed (FOMC) Rentebesluit & Persconferentie Jerome Powell",
             "jip_summary": (
-                "**Wat gaat er gebeuren:** De Amerikaanse centrale bank (Fed) maakt haar nieuwe rentebesluit bekend, "
+                "De Amerikaanse centrale bank (Fed) maakt haar nieuwe rentebesluit bekend, "
                 "gevolgd door de toelichting van voorzitter Jerome Powell."
             ),
             "econ_impact": (
-                "**Economisch vooruitzicht:** Dit is het belangrijkste wereldwijde moment van de week. "
+                "Dit is het belangrijkste wereldwijde moment van de week. "
                 "Een hint op lagere rentes is direct positief voor **Goud, Zilver** en opkomende markten zoals **Borsa İstanbul (BIST 100)**."
             ),
             "link": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
@@ -959,10 +959,10 @@ def get_upcoming_30_day_agenda():
             "time_str": "29-10-2026 (Hele dag)",
             "title": "🇹🇷 Cumhuriyet Bayramı (Dag van de Republiek) — Borsa İstanbul Gesloten",
             "jip_summary": (
-                "**Wat gaat er gebeuren:** Vanwege de nationale feestdag in Turkije is **Borsa İstanbul (BIST)** op 29 oktober gesloten."
+                "Vanwege de nationale feestdag in Turkije is **Borsa İstanbul (BIST)** op 29 oktober gesloten."
             ),
             "econ_impact": (
-                "**Economisch vooruitzicht:** Handelaren verkopen voor de feestdag vaak een deel van hun aandelen om geen kredietrente over de vrije dagen te betalen."
+                "Handelaren verkopen voor de feestdag vaak een deel van hun aandelen om geen kredietrente over de vrije dagen te betalen."
             ),
             "link": "https://www.borsaistanbul.com/tr/sayfa/143/resmi-tatil-gunleri"
         },
@@ -971,10 +971,10 @@ def get_upcoming_30_day_agenda():
             "time_str": "03-11-2026 (10:00 TR)",
             "title": "🇹🇷 TÜİK Turkse Inflatiecijfers (CPI / TÜFE Oktober)",
             "jip_summary": (
-                "**Wat gaat er gebeuren:** Het Turkse statistiekbureau (TÜİK) publiceert de officiële maandelijkse en jaarlijkse inflatiecijfers over oktober."
+                "Het Turkse statistiekbureau (TÜİK) publiceert de officiële maandelijkse en jaarlijkse inflatiecijfers over oktober."
             ),
             "econ_impact": (
-                "**Economisch vooruitzicht:** Bepaalt of de Turkse Centrale Bank (TCMB) de rente kan verlagen. "
+                "Bepaalt of de Turkse Centrale Bank (TCMB) de rente kan verlagen. "
                 "Valt de inflatie lager uit, dan schieten **BIST 100 bankaandelen** omhoog."
             ),
             "link": "https://www.tuik.gov.tr/"
@@ -984,10 +984,10 @@ def get_upcoming_30_day_agenda():
             "time_str": "06-11-2026 (10:30 TR)",
             "title": "🇹🇷 TCMB 4e Inflatieverslag (Enflasyon Raporu) — Toespraak Fatih Karahan",
             "jip_summary": (
-                "**Wat gaat er gebeuren:** De gouverneur van de Turkse Centrale Bank presenteert de nieuwe inflatievoorspellingen."
+                "De gouverneur van de Turkse Centrale Bank presenteert de nieuwe inflatievoorspellingen."
             ),
             "econ_impact": (
-                "**Economisch vooruitzicht:** Beleggers letten op signalen over het rentepad en de Lira."
+                "Beleggers letten op signalen over het rentepad en de Lira."
             ),
             "link": "https://www.tcmb.gov.tr/"
         },
@@ -996,10 +996,10 @@ def get_upcoming_30_day_agenda():
             "time_str": "09-11-2026 (18:00 TR)",
             "title": "🇹🇷 KAP Deadline Q3 2026 Kwartaalcijfers (Niet-Geconsolideerde BIST Bedrijven)",
             "jip_summary": (
-                "**Wat gaat er gebeuren:** Laatste dag waarop niet-geconsolideerde beursbedrijven hun derdekwartaalcijfers publiceren op KAP."
+                "Laatste dag waarop niet-geconsolideerde beursbedrijven hun derdekwartaalcijfers publiceren op KAP."
             ),
             "econ_impact": (
-                "**Economisch vooruitzicht:** Zorgt voor koersbewegingen per individueel aandeel op basis van winstmarges."
+                "Zorgt voor koersbewegingen per individueel aandeel op basis van winstmarges."
             ),
             "link": "https://www.kap.org.tr/"
         },
@@ -1008,10 +1008,10 @@ def get_upcoming_30_day_agenda():
             "time_str": "11-11-2026 (16:30 TR)",
             "title": "🇺🇸 Amerikaanse Inflatiecijfers (US CPI Oktober)",
             "jip_summary": (
-                "**Wat gaat er gebeuren:** Publicatie van de Amerikaanse consumentenprijzen."
+                "Publicatie van de Amerikaanse consumentenprijzen."
             ),
             "econ_impact": (
-                "**Economisch vooruitzicht:** Directe koersbepaler voor **Goud en Zilver**. Lagere Amerikaanse inflatie stuwt edelmetalen."
+                "Directe koersbepaler voor **Goud en Zilver**. Lagere Amerikaanse inflatie stuwt edelmetalen."
             ),
             "link": "https://www.bls.gov/cpi/"
         },
@@ -1020,10 +1020,10 @@ def get_upcoming_30_day_agenda():
             "time_str": "19-11-2026 (14:00 TR)",
             "title": "🇹🇷 TCMB Rentebesluit (PPK Toplantısı & Faiz Kararı)",
             "jip_summary": (
-                "**Wat gaat er gebeuren:** Het Monetair Beleidscomité van de Turkse Centrale Bank maakt het rentebesluit bekend."
+                "Het Monetair Beleidscomité van de Turkse Centrale Bank maakt het rentebesluit bekend."
             ),
             "econ_impact": (
-                "**Economisch vooruitzicht:** Hét belangrijkste binnenlandse macro-moment voor de **USD/TRY wisselkoers**, **Gram Goud** en de **BIST 100 Index**."
+                "Hét belangrijkste binnenlandse macro-moment voor de **USD/TRY wisselkoers**, **Gram Goud** en de **BIST 100 Index**."
             ),
             "link": "https://www.tcmb.gov.tr/"
         },
@@ -1032,10 +1032,10 @@ def get_upcoming_30_day_agenda():
             "time_str": "20-11-2026 (18:00 TR)",
             "title": "🇹🇷 KAP Deadline Q3 2026 Geconsolideerde Kwartaalcijfers (Holdings & Banken)",
             "jip_summary": (
-                "**Wat gaat er gebeuren:** Uiterste datum waarop grote holdings (KCHOL, SAHOL) hun volledige kwartaalcijfers bekendmaken."
+                "Uiterste datum waarop grote holdings (KCHOL, SAHOL) hun volledige kwartaalcijfers bekendmaken."
             ),
             "econ_impact": (
-                "**Economisch vooruitzicht:** Sluit het cijferseizoen af en bepaalt de leiders in de **BIST 100** richting het jaareinde."
+                "Sluit het cijferseizoen af en bepaalt de leiders in de **BIST 100** richting het jaareinde."
             ),
             "link": "https://www.kap.org.tr/"
         }
@@ -1272,51 +1272,52 @@ if st.session_state.master_enriched is not None:
         if filtered_master:
             export_lines = [f"# BIST 100 & Turkse Economie Master Rapport ({datetime.now().strftime('%d-%m-%Y %H:%M')})\n"]
             for idx, item in enumerate(filtered_master, 1):
-                chips_html_list = []
-                for tk in sorted(item.get("_matched_tickers", set())):
-                    snap = stock_tech_map.get(tk)
-                    if snap and snap.get("price") is not None:
-                        chg_color = "#166534" if snap["change"] >= 0 else "#991b1b"
-                        chips_html_list.append(
-                            f'<span class="stock-chip">'
-                            f'📊 <strong>{tk}</strong>: ₺{snap["price"]:,.2f} '
-                            f'(<span style="color:{chg_color};font-weight:bold;">{snap["change"]:+.2f}%</span>) '
-                            f'| RSI: <strong>{snap["rsi"]}</strong> | S1: ₺{snap["s1"]} / R1: ₺{snap["r1"]} | {snap["trend"]}'
-                            f'</span>'
-                        )
-                stock_chips_row = f"<div style='margin: 6px 0;'>{''.join(chips_html_list)}</div>" if chips_html_list else ""
+                # Gebruik schone Streamlit containers voor elke nieuwskaart (geen breekbare HTML meer!)
+                with st.container(border=True):
+                    # Top-balk met meta-info
+                    st.caption(f"**{item['priority_label']}** &nbsp;|&nbsp; **{item['topic_readable']}** &nbsp;|&nbsp; {item['badge_html']} &nbsp;|&nbsp; #{idx} | 🕒 {item['date_str']} | Bron: {item['source']}")
+                    
+                    # Titel & Originele kop
+                    st.markdown(f"### {item['title_nl']}")
+                    st.markdown(f"<span style='font-size: 12px; color: #64748b;'>Originele kop: {item['title_orig']}</span>", unsafe_allow_html=True)
 
-                extra_links = item.get("extra_source_links", [])
-                if extra_links:
-                    links_anchors = " · ".join([
-                        f'<a href="{es["link"]}" target="_blank" style="color: #334155; text-decoration: underline;">{es["name"]}</a>'
-                        for es in extra_links[:5]
-                    ])
-                    also_reported = (
-                        f"<br><span style='font-size: 12px; color: #475569;'>"
-                        f"🧠 <em>Zelfde inhoud (in andere vorm) ook gemeld door: {links_anchors} — automatisch samengevoegd tot 1 dossier.</em>"
-                        f"</span>"
-                    )
-                else:
-                    also_reported = ""
+                    # Extra bronnen indien samengevoegd
+                    extra_links = item.get("extra_source_links", [])
+                    if extra_links:
+                        links_anchors = " · ".join([
+                            f'<a href="{es["link"]}" target="_blank" style="color: #334155; text-decoration: underline;">{es["name"]}</a>'
+                            for es in extra_links[:5]
+                        ])
+                        st.markdown(f"<span style='font-size: 12px; color: #475569;'>🧠 <em>Zelfde inhoud ook gemeld door: {links_anchors} — automatisch samengevoegd tot 1 dossier.</em></span>", unsafe_allow_html=True)
 
-                st.markdown(
-                    f"""<div class="{item['card_class']}">
-                        <div style="margin-bottom: 6px;">
-                            <span class="prio-pill">{item['priority_label']}</span> &nbsp; <span class="topic-pill">{item['topic_readable']}</span> &nbsp; {item['badge_html']} &nbsp; <strong>#{idx} | 🕒 {item['date_str']} | Bron: {item['source']}</strong>
-                        </div>
-                        <span style="font-size: 17px; font-weight: bold; color: #0f172a;">{item['title_nl']}</span><br>
-                        <span style="font-size: 12px; color: #64748b;">Originele kop: {item['title_orig']}</span>
-                        {also_reported}<br>
-                        <span style="font-size: 13px; color: #1e3a8a; font-weight: 600;">🎯 Geraakte Sectoren / Markten: {item['sector_str']}</span>
-                        {stock_chips_row}
-                        <hr style="margin: 8px 0; border: 0; border-top: 1px solid #cbd5e1;">
-                        <p style="margin-bottom: 6px;">🗣️ {item['jip_summary']}</p>
-                        <p style="margin-bottom: 8px;">📊 {item['econ_impact']}</p>
-                        🔗 <a href="{item['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8;">Klik hier om het originele hoofd-artikel te openen ({item['source']})</a>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
+                    # Geraakte sectoren
+                    st.markdown(f"**🎯 Geraakte Sectoren / Markten:** {item['sector_str']}")
+
+                    # Technische aandelen-chips (indien van toepassing)
+                    chips_html_list = []
+                    for tk in sorted(item.get("_matched_tickers", set())):
+                        snap = stock_tech_map.get(tk)
+                        if snap and snap.get("price") is not None:
+                            chg_color = "#166534" if snap["change"] >= 0 else "#991b1b"
+                            chips_html_list.append(
+                                f'<span class="stock-chip" style="background:#f1f5f9; padding:4px 8px; border-radius:6px; font-size:12px; margin-right:6px; display:inline-block; border:1px solid #cbd5e1;">'
+                                f'📊 <strong>{tk}</strong>: ₺{snap["price"]:,.2f} '
+                                f'(<span style="color:{chg_color};font-weight:bold;">{snap["change"]:+.2f}%</span>) '
+                                f'| RSI: <strong>{snap["rsi"]}</strong> | S1: ₺{snap["s1"]} / R1: ₺{snap["r1"]} | {snap["trend"]}'
+                                f'</span>'
+                            )
+                    if chips_html_list:
+                        st.markdown(f"<div style='margin: 6px 0;'>{''.join(chips_html_list)}</div>", unsafe_allow_html=True)
+
+                    st.divider()
+
+                    # Compacte uitschuifbare Jip-en-Janneke analyse (neemt geen onnodige ruimte in beslag)
+                    with st.expander("🗣️ Bekijk Jip-en-Janneketaal Analyse & Beursimpact"):
+                        st.markdown(f"**Wat is er aan de hand:**\n{item['jip_summary']}")
+                        st.markdown(f"**Economisch vooruitzicht & Beursimpact:**\n{item['econ_impact']}")
+
+                    # Link naar originele bron
+                    st.markdown(f"🔗 [Klik hier om het originele hoofd-artikel te openen ({item['source']})]({item['link']})")
 
                 export_lines.append(
                     f"## #{idx} [{item['priority_label']}] {item['title_nl']} ({item['date_str']} - {item['source']})\n"
@@ -1380,17 +1381,13 @@ if st.session_state.master_enriched is not None:
             for idx, ev in enumerate(upcoming_agenda, 1):
                 days_left = (ev["date"] - datetime.now(timezone.utc).date()).days
                 days_label = "Vandaag!" if days_left == 0 else f"Over {days_left} dagen"
-                st.markdown(
-                    f"""<div class="agenda-card">
-                        <strong>#{idx} | 📅 Datum: {ev['time_str']} ({days_label})</strong><br>
-                        <span style="font-size: 17px; font-weight: bold; color: #1e3a8a;">{ev['title']}</span>
-                        <hr style="margin: 8px 0; border: 0; border-top: 1px solid #93c5fd;">
-                        <p style="margin-bottom: 6px;">🗣️ {ev['jip_summary']}</p>
-                        <p style="margin-bottom: 8px;">📊 {ev['econ_impact']}</p>
-                        🔗 <a href="{ev['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8;">Klik hier voor de officiële bron & kalenderpagina</a>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
+                with st.container(border=True):
+                    st.markdown(f"**#{idx} | 📅 Datum: {ev['time_str']} ({days_label})**")
+                    st.markdown(f"### {ev['title']}")
+                    st.divider()
+                    st.markdown(f"**Wat gaat er gebeuren:**\n{ev['jip_summary']}")
+                    st.markdown(f"**Economisch vooruitzicht & Beursimpact:**\n{ev['econ_impact']}")
+                    st.markdown(f"🔗 [Klik hier voor de officiële bron & kalenderpagina]({ev['link']})")
         else:
             st.info("Geen geplande macro-evenementen gevonden binnen de komende 30 dagen.")
 
