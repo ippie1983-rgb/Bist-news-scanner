@@ -243,8 +243,8 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     for c in tickers_clean:
         all_tr_items.extend(stock_news_dict.get(c, []))
 
-    # --- AGENT 1: Strenge instructie voor Jip-en-Janneke samenvatting per artikel inclusief bronlink ---
-    with st.spinner("🇹🇷 Agent 1: Artikelen en Jip-en-Janneke samenvattingen per bronlink genereren..."):
+    # --- AGENT 1: Artikel-samenvattingen per bronlink ---
+    with st.spinner("🇹🇷 Agent 1: Artikel-samenvattingen per bronlink genereren..."):
         articles_formatted = "\n".join([f"ARTIKEL:\n- Titel: {item['title']}\n- Link: {item['link']}\n- Datum: {item['date']}\n" for item in all_tr_items]) if all_tr_items else "Geen artikelen."
         
         fallback_agent1 = f"### 🇹🇷 Turkije & BIST Overzicht\n\n- **BIST 100:** {bist_p:,.0f} | **USD/TRY:** ₺{usd_p:,.2f}"
@@ -258,9 +258,9 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
             "1. **Titel van het artikel**\n"
             "2. **Jip-en-Janneketaal Samenvatting:** Wat staat er in het artikel en wat betekent dit economisch voor de belegger?\n"
             "3. **Bronlink:** Zet exact de URL-link neer die hierboven bij dat artikel hoort in de vorm van een Markdown link (bijv. [Lees het volledige artikel hier](URL)).\n\n"
-            "Houd dit strak per artikel aan zodat elke link direct is gekoppeld aan zijn eigen samenvatting."
+            "Houd dit strak per artikel aan."
         )
-        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een Turkse marktexpert die elk artikel helder samenvat in Jip-en-Janneketaal met behoud van de eigen bronlink.", fallback_agent1)
+        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een Turkse marktexpert die elk artikel helder samenvat met behoud van de bronlink.", fallback_agent1)
 
     # --- AGENT 2 ---
     with st.spinner("🌍 Agent 2: Globaal & Edelmetalen..."):
@@ -313,7 +313,7 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     ])
 
     with tab1:
-        st.markdown("### Agent 1: Turkse Media - Artikel Samenvattingen per Bronlink")
+        st.markdown("### Agent 1: Turkse Media - Artikel Samenvattingen & Links")
         st.markdown(agent1_output)
 
     with tab2:
