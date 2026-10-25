@@ -25,7 +25,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="main-header">🇹🇷 BIST & Edelmetalen 6-Agent Nieuwsscanner</p>', unsafe_allow_html=True)
-st.markdown("Live nieuws, **artikel-samenvattingen per bronlink** (max 3 dagen oud) en een **toekomstige 30-dagen Macro-Agenda (oplopend)**.")
+st.markdown("Live marktoverzicht, **Agent 1 met artikel-samenvattingen per bronlink** (max 3 dagen oud) en een **toekomstige 30-dagen Macro-Agenda (oplopend)**.")
 
 # --- ZIJBALK: INSTELLINGEN ---
 if "gemini_auth" not in st.session_state:
@@ -209,7 +209,7 @@ def call_gemini_with_fallback(prompt_text, system_instruction, fallback_text):
 
 # --- HOOFDPROGRAMMA ---
 st.markdown("### 🤖 Start de 6-Agent Top-Media Scanner")
-st.markdown("Druk op de knop om de analyse te starten met gedetailleerde samenvattingen per bronlink.")
+st.markdown("Druk op de knop om de analyse te starten met gedetailleerde samenvattingen per bronlink voor Agent 1.")
 
 if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     tickers_clean = [t.split(" ")[0] for t in selected_tickers] if selected_tickers else ["THYAO", "ASELS", "KCHOL"]
@@ -228,7 +228,7 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
         nl_war_items = fetch_news_strict("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 8, max_days=3)
         nl_gold_items = fetch_news_strict("goudprijs zilverprijs Fed rente", "nl", 8, max_days=3)
         
-        agenda_items = fetch_news_strict("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon", "tr", 10, max_days=None)
+        agenda_items = fetch_news_strict("Fed toplantı faiz kararı TCMB PPK TÜİK enflasyon", "tr", 12, max_days=None)
         agenda_items = sorted(agenda_items, key=lambda x: x["datetime"])
 
         bist_p = market_data.get("BIST 100", {}).get("price") or 0.0
@@ -243,9 +243,8 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     for c in tickers_clean:
         all_tr_items.extend(stock_news_dict.get(c, []))
 
-    # --- AGENT 1: Strenge instructie voor samenvatting per artikel met bronlink ---
-    with st.spinner("🇹🇷 Agent 1: Artikel-samenvattingen per bronlink genereren..."):
-        # We geven elk artikel voorzien van zijn URL mee aan Agent 1
+    # --- AGENT 1: Strenge instructie voor Jip-en-Janneke samenvatting per artikel inclusief bronlink ---
+    with st.spinner("🇹🇷 Agent 1: Artikelen en Jip-en-Janneke samenvattingen per bronlink genereren..."):
         articles_formatted = "\n".join([f"ARTIKEL:\n- Titel: {item['title']}\n- Link: {item['link']}\n- Datum: {item['date']}\n" for item in all_tr_items]) if all_tr_items else "Geen artikelen."
         
         fallback_agent1 = f"### 🇹🇷 Turkije & BIST Overzicht\n\n- **BIST 100:** {bist_p:,.0f} | **USD/TRY:** ₺{usd_p:,.2f}"
@@ -256,12 +255,12 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
             "STRENGE OPDRACHT:\n"
             "Je moet ELK artikel hierboven stuk voor stuk langslopen. Sla er geen één over.\n"
             "Geef per artikel exact de volgende structuur weer:\n"
-            "1. **Onderwerp / Titel van het artikel**\n"
+            "1. **Titel van het artikel**\n"
             "2. **Jip-en-Janneketaal Samenvatting:** Wat staat er in het artikel en wat betekent dit economisch voor de belegger?\n"
-            "3. **Bronlink:** Zet exact de URL-link neer die hierboven bij dat artikel hoort in de vorm van een Markdown link (bijv. [Klik hier om het artikel te lezen](URL)).\n\n"
-            "Houd dit strak per artikel aangehouden, zodat de gebruiker direct de samenvatting kan lezen en kan doorklikken naar de bron."
+            "3. **Bronlink:** Zet exact de URL-link neer die hierboven bij dat artikel hoort in de vorm van een Markdown link (bijv. [Lees het volledige artikel hier](URL)).\n\n"
+            "Houd dit strak per artikel aan zodat elke link direct is gekoppeld aan zijn eigen samenvatting."
         )
-        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een Turkse marktexpert die elk artikel helder samenvat met behoud van de bronlink.", fallback_agent1)
+        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een Turkse marktexpert die elk artikel helder samenvat in Jip-en-Janneketaal met behoud van de eigen bronlink.", fallback_agent1)
 
     # --- AGENT 2 ---
     with st.spinner("🌍 Agent 2: Globaal & Edelmetalen..."):
@@ -302,7 +301,7 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
         agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent een macro-economisch analist en agenda-expert.", fallback_agent6)
 
     # --- TOON RESULTATEN IN TABS ---
-    st.success("✅ Analyse met artikel-samenvattingen per bronlink succesvol afgerond!")
+    st.success("✅ Analyse succesvol afgerond!")
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🇹🇷 Agent 1: BIST",
@@ -314,7 +313,7 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     ])
 
     with tab1:
-        st.markdown("### Agent 1: Turkse Media - Artikel Samenvattingen & Links")
+        st.markdown("### Agent 1: Turkse Media - Artikel Samenvattingen per Bronlink")
         st.markdown(agent1_output)
 
     with tab2:
