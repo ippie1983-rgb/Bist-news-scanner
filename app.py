@@ -11,7 +11,7 @@ from datetime import datetime, timezone, date
 
 # Pagina configuratie
 st.set_page_config(
-    page_title="BIST 100 & Edelmetalen Master Scanner",
+    page_title="BIST 100 & Turkse Economie Master Scanner",
     page_icon="🇹🇷",
     layout="wide"
 )
@@ -24,8 +24,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">🇹🇷 BIST 100 & Edelmetalen Master Scanner</p>', unsafe_allow_html=True)
-st.markdown("Live marktoverzicht, **alle 100 BIST aandelen selecteerbaar**, strikt **economisch & financieel gefilterd nieuws door Agent 1**, en een **toekomstige 30-dagen Macro-Agenda**.")
+st.markdown('<p class="main-header">🇹🇷 BIST 100 & Turkse Economie Master Scanner</p>', unsafe_allow_html=True)
+st.markdown("Grondige analyse van de **Turkse economie**, alle 100 BIST aandelen selecteerbaar, **strikt economisch gefilterd nieuws**, en een **toekomstige 30-dagen Macro-Agenda**.")
 
 # --- ZIJBALK: INSTELLINGEN ---
 if "gemini_auth" not in st.session_state:
@@ -39,12 +39,12 @@ st.session_state.gemini_auth = st.sidebar.text_input(
     value=st.session_state.gemini_auth,
     help="Staat standaard ingesteld."
 )
-st.sidebar.success("✅ BIST 100 Master Scanner Actief!")
+st.sidebar.success("✅ Grondige Master Scanner Actief!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 BIST 100 & Aandelen Selectie (Agent 1)")
 
-# Volledige BIST 100 selectielijst
+# Volledige officiële BIST 100 selectielijst
 BIST_100_FULL_LIST = [
     "📈 BIST 100 Index (Algemeen & Brede Markt)",
     "THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)", "AKBNK (Akbank)", 
@@ -140,7 +140,7 @@ def get_stock_snapshots(tickers_clean):
             snapshots[code] = {"price": None, "change": 0.0, "rsi": 50.0, "trend": "Onbekend"}
     return snapshots
 
-def fetch_news_strict(query, lang="tr", max_items=15, max_days=3):
+def fetch_news_strict(query, lang="tr", max_items=20, max_days=3):
     q_enc = urllib.parse.quote(query)
     if lang == "tr":
         url = f"https://news.google.com/rss/search?q={q_enc}&hl=tr&gl=TR&ceid=TR:tr"
@@ -226,23 +226,24 @@ def call_gemini_with_fallback(prompt_text, system_instruction, fallback_text):
     return fallback_text
 
 # --- HOOFDPROGRAMMA ---
-st.markdown("### 🤖 Start de BIST 100 Master Scanner")
-st.markdown("Druk op de knop om de economisch gefilterde analyse te starten.")
+st.markdown("### 🤖 Start de BIST 100 & Turkse Economie Master Scanner")
+st.markdown("Druk op de knop om de grondige, strikt economisch gefilterde analyse te starten.")
 
-if st.button("🚀 Start BIST 100 Master Analyse", type="primary"):
+if st.button("🚀 Start Grondige Master Analyse", type="primary"):
     is_bist100_general = any("BIST 100 Index" in t for t in selected_tickers)
     tickers_clean = [t.split(" ")[0] for t in selected_tickers if "BIST 100" not in t]
     tickers_str = ", ".join(tickers_clean) if tickers_clean else "Geen specifieke aandelen (Volledige BIST 100 Macro Focus)"
 
-    with st.spinner("📡 Ophalen van financieel nieuws (BIST 100, SPK, macro, politiek, bedrijfsresultaten)..."):
+    with st.spinner("📡 Ophalen van grondige Turkse economische data, beleid, marktnieuws en schandalen..."):
         stock_snaps = get_stock_snapshots(tickers_clean)
         
-        tr_econ_items = fetch_news_strict("Borsa Istanbul BIST 100 ekonomi TCMB Mehmet Simsek", "tr", 15, 3)
-        tr_spk_items = fetch_news_strict("SPK ceza sorusturma fon skandali kayyum operasyon", "tr", 12, 3)
-        tr_pol_econ_items = fetch_news_strict("Turkiye siyaset ekonomi Merkez Bankasi enflasyon", "tr", 12, 3)
+        # Uitgebreide bronverzameling specifiek gericht op de Turkse economie en markten
+        tr_econ_items = fetch_news_strict("Borsa Istanbul BIST 100 ekonomi TCMB Mehmet Simsek enflasyon", "tr", 20, 3)
+        tr_spk_items = fetch_news_strict("SPK ceza sorusturma fon skandali kayyum operasyon borsa", "tr", 15, 3)
+        tr_pol_econ_items = fetch_news_strict("Turkiye siyaset ekonomi Merkez Bankasi faiz kur", "tr", 15, 3)
         
         stock_news_dict = {}
-        for c in tickers_clean[:20]: # Kan tot 20 gekozen aandelen live ophalen
+        for c in tickers_clean[:30]: # Tot 30 geselecteerde aandelen meenemen
             stock_news_dict[c] = fetch_news_strict(f"{c} hisse KAP bilanco", "tr", 4, 3)
         
         nl_war_items = fetch_news_strict("oorlog Midden-Oosten Oekraine geopolitiek olie", "nl", 8, 3)
@@ -260,32 +261,33 @@ if st.button("🚀 Start BIST 100 Master Analyse", type="primary"):
         vix_p = market_data.get("VIX (Angst)", {}).get("price") or 0.0
 
     all_tr_items = tr_econ_items + tr_spk_items + tr_pol_econ_items
-    for c in tickers_clean[:20]:
+    for c in tickers_clean[:30]:
         all_tr_items.extend(stock_news_dict.get(c, []))
 
-    # --- AGENT 1: Strikte Economische & Marktanalyse met AI-Filter ---
-    with st.spinner("🇹🇷 Agent 1: Filteren op economie en Jip-en-Janneketaal samenvattingen genereren..."):
+    # --- AGENT 1: Grondige Economische & Financiële AI-Analyse ---
+    with st.spinner("🇹🇷 Agent 1: Stricte economische filtering en diepgaande Jip-en-Janneke analyse genereren..."):
         articles_formatted = "\n".join([f"- Titel: {item['title']}\n  Link: {item['link']}\n  Datum: {item['date']}\n" for item in all_tr_items]) if all_tr_items else "Geen artikelen."
         
-        fallback_agent1 = "### 🇹🇷 BIST 100 & Economisch Overzicht\n\nGeen artikelen geladen."
+        fallback_agent1 = f"### 🇹🇷 Turkse Economie & BIST 100 Overzicht\n\n- **BIST 100:** {bist_p:,.0f} | **USD/TRY:** ₺{usd_p:,.2f}"
         prompt_agent1 = (
-            "Jij bent Agent 1: BIST 100 & Strikte Economische Intelligence Agent.\n"
+            "Jij bent Agent 1: Turkse Economie & Strikte Financiële Intelligence Agent.\n"
             f"De gebruiker volgt de brede markt (BIST 100 Algemeen: {is_bist100_general}) en deze specifieke aandelen: {tickers_str}.\n\n"
             "Hieronder staat een lijst met recente artikelen van de afgelopen 3 dagen uit de Turkse media:\n\n"
             f"{articles_formatted}\n\n"
             "STRENGE FILTER- EN ANALYSE-OPDRACHT:\n"
-            "1. **STRIKTE ECONOMISCHE SELECTIE:** Filter ALLES weg wat niet direct te maken heeft met economie, financiën, beurskoersen, SPK-maatregelen, fondsschandalen, centrale banken (TCMB/Fed), officiële bedrijfsresultaten (KAP) of politieke gebeurtenissen met directe marktimpact (zoals spanningen met de VS/Trump, arrestaties van bestuurders of macro-beleid). Negeer sport, voetbal, amusement, films en willekeurige misdaad zonder economische link volledig.\n"
-            "2. **ARTIKEL PER ARTIKEL:** Loop de overgebleven, relevante artikelen stuk voor stuk langs.\n"
-            "3. **STRUCTUUR PER ARTIKEL:** Geef per artikel exact weer:\n"
+            "1. **STRIKTE ECONOMISCHE EN FINANCIËLE FOCUS:** Beoordeel elk artikel op reële economische en markttechnische impact. Accepteer UISLUITEND nieuws dat te maken heeft met de Turkse economie, BIST 100, centrale banken (TCMB/Fed), inflatie, wisselkoersen (USD/TRY), SPK-maatregelen, fondsschandalen, politieke gebeurtenissen met directe marktimpact (zoals spanningen met de VS/Trump, beleidswijzigingen of arrestaties van bestuurders/politici met directe invloed op het bedrijfsleven), en officiële bedrijfsresultaten (KAP).\n"
+            "2. **NEGEER RUIS:** Filter ALLES weg wat te maken heeft met voetbal, sport, amusement, films, roddels of misdaad die losstaat van de economie of het bedrijfsleven. Noem deze artikelen helemaal niet.\n"
+            "3. **ARTIKEL PER ARTIKEL:** Loop de overgebleven, strikt economische artikelen stuk voor stuk langs.\n"
+            "4. **STRUCTUUR PER ARTIKEL:** Geef per relevant artikel exact deze structuur weer:\n"
             "   - **Titel van het artikel**\n"
-            "   - **Jip-en-Janneketaal Samenvatting:** Wat betekent dit concreet voor de belegger en de koers?\n"
+            "   - **Jip-en-Janneketaal Samenvatting:** Wat betekent dit economisch en wat is de impact op de belegger/koersen?\n"
             "   - **Bronlink:** Zet exact de URL-link neer in de vorm van een Markdown link ([Lees het volledige artikel hier](URL)).\n"
         )
-        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een strikt economische Turkse marktexpert die uitsluitend financieel relevant nieuws selecteert en samenvat.", fallback_agent1)
+        agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een deskundige Turkse econoom en markanalist die uitsluitend financieel en economisch relevant nieuws analyseert.", fallback_agent1)
 
     # --- AGENT 2 ---
     with st.spinner("🌍 Agent 2: Globaal & Edelmetalen..."):
-        fallback_agent2 = f"Goud is ${gold_p:,.2f} (Gram: ₺{gram_p:,.2f}), Zilver is ${silv_p:,.2f}."
+        fallback_agent2 = f"Goud is ${gold_p:,.2f} (Gram: ₺{gram_p:,.2f}), Zilver is${silv_p:,.2f}."
         prompt_agent2 = "Jij bent Agent 2. Analyseer goud, zilver en wereldnieuws."
         agent2_output = call_gemini_with_fallback(prompt_agent2, "Je bent een macro-analist.", fallback_agent2)
 
@@ -303,73 +305,4 @@ if st.button("🚀 Start BIST 100 Master Analyse", type="primary"):
 
     # --- AGENT 5 ---
     with st.spinner("⚖️ Agent 5: Auditing..."):
-        fallback_agent5 = "Let op valutarisico's en recente geopolitieke spanningen (VIX: " + str(vix_p) + ")."
-        prompt_agent5 = "Jij bent Agent 5. Voer risico-audit uit."
-        agent5_output = call_gemini_with_fallback(prompt_agent5, "Je bent risicocontroleur.", fallback_agent5)
-
-    # --- AGENT 6: Toekomstige 30-Dagen Macro Agenda (Oplopend) ---
-    with st.spinner("📅 Agent 6: Toekomstige 30-Dagen Macro Agenda genereren..."):
-        agenda_formatted = "\n".join([f"- Datum: {item['date']} | Titel: {item['title']} | Link: {item['link']}" for item in agenda_items]) if agenda_items else "Geen agenda-items."
-        fallback_agenda = "### 📅 Toekomstige 30-Dagen Macro Agenda\n\nGeplande publicaties en besluiten."
-        prompt_agent6 = (
-            "Jij bent Agent 6: De Toekomstige Macro-Agenda Samenvatter.\n"
-            "Hier zijn de chronologisch gesorteerde komende agenda-artikelen:\n"
-            f"{agenda_formatted}\n\n"
-            "OPDRACHT:\n"
-            "Zet deze toekomstige agenda-items om in een helder, oplopend overzicht in normale mensentaal (Jip-en-Janneketaal). "
-            "Vermeld bij elk item de datum, een korte uitleg van wat er gaat gebeuren, en de bijbehorende bronlink."
-        )
-        agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent een macro-economisch analist en agenda-expert.", fallback_agenda)
-
-    # --- TOON RESULTATEN IN TABS ---
-    st.success("✅ Master Analyse met strenge economische filtering succesvol afgerond!")
-
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "🇹🇷 Agent 1: BIST & Economisch Nieuws",
-        "🌍 Agent 2: Globaal",
-        "🕵️‍♂️ Agent 3: Fact-Check",
-        "💡 Agent 4: Advies",
-        "⚖️ Agent 5: Auditing",
-        "📅 Agent 6: TOEKOMSTIGE AGENDA"
-    ])
-
-    with tab1:
-        st.markdown("### Agent 1: BIST 100 & Strikt Economisch Gefilterd Nieuws")
-        st.markdown(agent1_output)
-        st.markdown("---")
-        st.markdown("#### 🔗 Geverifieerde Economische Bronlijst (Max 3 Dagen Oud)")
-        if all_tr_items:
-            for item in all_tr_items:
-                st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
-        else:
-            st.info("Geen economische artikelen gevonden.")
-
-    with tab2:
-        st.markdown("### Agent 2: Wereldnieuws, Oorlog & Edelmetalen")
-        st.markdown(agent2_output)
-        st.markdown("---")
-        st.markdown("#### 🔗 Volledige Bronlijst Internationale Media (Max 3 Dagen Oud)")
-        if nl_war_items or nl_gold_items:
-            for item in nl_war_items + nl_gold_items:
-                st.markdown(f"- [{item['title']}]({item['link']}) *({item['date']})*")
-        else:
-            st.info("Geen recente internationale artikelen gevonden.")
-
-    with tab3:
-        st.markdown("### Agent 3: De Waarheids-Filter (Fact-Check)")
-        st.markdown(agent3_output)
-
-    with tab4:
-        st.markdown("### Agent 4: Concreet Beleggingsadvies (Jip-en-Janneketaal)")
-        st.markdown(agent4_output)
-
-    with tab5:
-        st.markdown("### Agent 5: Eindcontrole & Risico-Audit")
-        st.markdown(agent5_output)
-
-    with tab6:
-        st.markdown("### Agent 6: Toekomstige 30-Dagen Macro Agenda")
-        st.markdown(agent6_output)
-
-else:
-    st.info("👈 Selecteer de BIST 100 Index en/of je gewenste aandelen in de zijbalk en klik op de knop om de analyse te starten!")
+        fallback_agent5 = "Let op valutarisico's
