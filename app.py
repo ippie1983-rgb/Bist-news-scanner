@@ -209,7 +209,7 @@ def call_gemini_with_fallback(prompt_text, system_instruction, fallback_text):
 
 # --- HOOFDPROGRAMMA ---
 st.markdown("### 🤖 Start de 6-Agent Top-Media Scanner")
-st.markdown("Druk op de knop om de analyse te starten met gedetailleerde samenvattingen per bronlink voor Agent 1.")
+st.markdown("Druk op de knop om de analyse te starten.")
 
 if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     tickers_clean = [t.split(" ")[0] for t in selected_tickers] if selected_tickers else ["THYAO", "ASELS", "KCHOL"]
@@ -243,22 +243,28 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     for c in tickers_clean:
         all_tr_items.extend(stock_news_dict.get(c, []))
 
-    # --- AGENT 1: Artikel-samenvattingen per bronlink ---
+    # --- AGENT 1: Artikel-samenvattingen per bronlink met veilige fallback ---
     with st.spinner("🇹🇷 Agent 1: Artikel-samenvattingen per bronlink genereren..."):
-        articles_formatted = "\n".join([f"ARTIKEL:\n- Titel: {item['title']}\n- Link: {item['link']}\n- Datum: {item['date']}\n" for item in all_tr_items]) if all_tr_items else "Geen artikelen."
+        articles_formatted = "\n".join([f"- Titel: {item['title']}\n  Link: {item['link']}\n  Datum: {item['date']}\n" for item in all_tr_items]) if all_tr_items else "Geen artikelen."
         
-        fallback_agent1 = f"### 🇹🇷 Turkije & BIST Overzicht\n\n- **BIST 100:** {bist_p:,.0f} | **USD/TRY:** ₺{usd_p:,.2f}"
+        # Veilige fallback die altijd de artikelen toont mocht de AI-server even haperen
+        fallback_agent1 = "### 🇹🇷 Turkije & BIST Overzicht (Live Artikelen)\n\n"
+        if all_tr_items:
+            for item in all_tr_items:
+                fallback_agent1 += f"- **{item['title']}** *({item['date']})*\n  [Lees volledige artikel]({item['link']})\n\n"
+        else:
+            fallback_agent1 += "Geen artikelen gevonden in de afgelopen 3 dagen."
+
         prompt_agent1 = (
             "Jij bent Agent 1: BIST & Nieuws Intelligence Agent.\n"
             "Hieronder staat een lijst met recente artikelen van de afgelopen 3 dagen uit de Turkse media:\n\n"
             f"{articles_formatted}\n\n"
             "STRENGE OPDRACHT:\n"
-            "Je moet ELK artikel hierboven stuk voor stuk langslopen. Sla er geen één over.\n"
-            "Geef per artikel exact de volgende structuur weer:\n"
+            "Loop al deze artikelen stuk voor stuk langs. Sla er geen één over.\n"
+            "Geef per artikel exact deze structuur weer:\n"
             "1. **Titel van het artikel**\n"
             "2. **Jip-en-Janneketaal Samenvatting:** Wat staat er in het artikel en wat betekent dit economisch voor de belegger?\n"
-            "3. **Bronlink:** Zet exact de URL-link neer die hierboven bij dat artikel hoort in de vorm van een Markdown link (bijv. [Lees het volledige artikel hier](URL)).\n\n"
-            "Houd dit strak per artikel aan."
+            "3. **Bronlink:** Zet exact de URL-link neer in de vorm van een Markdown link (bijv. [Lees het volledige artikel hier](URL)).\n"
         )
         agent1_output = call_gemini_with_fallback(prompt_agent1, "Je bent een Turkse marktexpert die elk artikel helder samenvat met behoud van de bronlink.", fallback_agent1)
 
@@ -289,7 +295,13 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     # --- AGENT 6: Toekomstige 30-Dagen Macro Agenda (Oplopend) ---
     with st.spinner("📅 Agent 6: Toekomstige 30-Dagen Macro Agenda genereren..."):
         agenda_formatted = "\n".join([f"- Datum: {item['date']} | Titel: {item['title']} | Link: {item['link']}" for item in agenda_items]) if agenda_items else "Geen agenda-items."
-        fallback_agent6 = "### 📅 Toekomstige 30-Dagen Macro Agenda\n\nGeplande publicaties en besluiten."
+        fallback_agenda = "### 📅 Toekomstige 30-Dagen Macro Agenda\n\n"
+        if agenda_items:
+            for item in agenda_items:
+                fallback_agenda += f"- **[{item['date']}]** {item['title']}\n  [Bronlink]({item['link']})\n\n"
+        else:
+            fallback_agenda += "Geen agenda-items gevonden."
+
         prompt_agent6 = (
             "Jij bent Agent 6: De Toekomstige Macro-Agenda Samenvatter.\n"
             "Hier zijn de chronologisch gesorteerde komende agenda-artikelen:\n"
@@ -298,7 +310,7 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
             "Zet deze toekomstige agenda-items om in een helder, oplopend overzicht in normale mensentaal (Jip-en-Janneketaal). "
             "Vermeld bij elk item de datum, een korte uitleg van wat er gaat gebeuren, en de bijbehorende bronlink."
         )
-        agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent een macro-economisch analist en agenda-expert.", fallback_agent6)
+        agent6_output = call_gemini_with_fallback(prompt_agent6, "Je bent een macro-economisch analist en agenda-expert.", fallback_agenda)
 
     # --- TOON RESULTATEN IN TABS ---
     st.success("✅ Analyse succesvol afgerond!")
@@ -313,7 +325,7 @@ if st.button("🚀 Start 6-Agent Analyse", type="primary"):
     ])
 
     with tab1:
-        st.markdown("### Agent 1: Turkse Media - Artikel Samenvattingen & Links")
+        st.markdown("### Agent 1: Turkse Media - Artikel Samenvattingen per Bronlink")
         st.markdown(agent1_output)
 
     with tab2:
