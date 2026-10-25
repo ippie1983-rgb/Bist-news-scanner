@@ -46,7 +46,7 @@ BIST_100_STOCKS = [
     "EUPWR (Europower Enerji)", "EUREN (Europen Endüstri)", "FROTO (Ford Otosan)", "GARAN (Garanti BBVA)",
     "GESAN (Girişim Elektrik)", "GOLTS (Göltaş Çimento)", "GUBRF (Gübre Fabrikaları)", "GWIND (Galata Wind)",
     "HALKB (Halkbank)", "HEKTS (Hektaş)", "IMASM (İmaş Makina)", "IPEKE (İpek Doğal Enerji)",
-    "ISCTR (İş Bankası C)", "ISDMR (İskenderun Demir Çelik)", "ISGYO (İş GYO)", "ISMEN (İş Yatırım)",
+    "ISCTR (İş Bankası C)", "ISDMR (İskenderun Demir Çelik)", "ISGYO (IS GYO)", "ISMEN (İş Yatırım)",
     "KAYSE (Kayseri Şeker)", "KCAER (Kocaer Çelik)", "KCHOL (Koç Holding)", "KLSER (Kaleseramik)",
     "KONTR (Kontrolmatik)", "KONYA (Konya Çimento)", "KORDS (Kordsa)", "KOZAA (Koza Anadolu Metal)",
     "KOZAL (Koza Altın)", "KRDMD (Kardemir D)", "KTLEV (Katılımevim)", "LMKDC (Limak Doğu Anadolu Çimento)",
@@ -868,4 +868,270 @@ if st.button("🚀 Start Volledige Master Analyse", type="primary"):
         ]
 
         if custom_search_query and custom_search_query.strip():
-            q
+            q_clean = custom_search_query.strip()
+            rss_tasks.insert(0, (
+                f"🔎 Vrije Zoekopdracht: '{q_clean}'",
+                f'"{q_clean}"',
+                "tr", 12, max_days_slider, tickers_clean, q_clean
+            ))
+
+        if tickers_clean:
+            batch_size = 5
+            for i in range(0, min(len(tickers_clean), 35), batch_size):
+                batch = tickers_clean[i:i + batch_size]
+                or_stocks = " OR ".join(batch)
+                rss_tasks.append((
+                    f"🏢 Aandelennieuws & KAP ({', '.join(batch)})",
+                    f"({or_stocks}) AND (hisse OR KAP OR bilanço OR temettü OR yatırım)",
+                    "tr", 6, max_days_slider, batch, custom_search_query
+                ))
+
+        with ThreadPoolExecutor(max_workers=12) as executor:
+            google_results = list(executor.map(fetch_google_rss_feed, rss_tasks))
+            direct_results = []
+            if include_direct_newspaper_rss:
+                direct_tasks = [
+                    (label, url, max_days_slider, tickers_clean, custom_search_query)
+                    for label, url in DIRECT_TURKISH_RSS_FEEDS
+                ]
+                direct_results = list(executor.map(fetch_direct_newspaper_rss, direct_tasks))
+
+        raw_all_items = []
+        for res_list in google_results + direct_results:
+            raw_all_items.extend(res_list)
+
+        total_raw_count = len(raw_all_items)
+        master_enriched = enrich_articles_with_dutch_summaries(raw_all_items, all_bist_codes)
+
+        is_max_mode = dedup_strictness.startswith("Maximaal")
+        master_enriched = deduplicate_by_semantic_content(master_enriched, max_mode=is_max_mode)
+        removed_dups_count = total_raw_count - len(master_enriched)
+
+        all_mentioned_tickers = set(tickers_clean[:12])
+        for it in master_enriched:
+            for tk in it.get("_matched_tickers", set()):
+                all_mentioned_tickers.add(tk)
+        stock_tech_map = get_bist_technical_snapshots(tuple(sorted(all_mentioned_tickers)[:25]))
+
+        if sort_mode == "Puur op Datum (Allernieuwste bovenaan)":
+            master_enriched.sort(key=lambda x: -x["datetime"].timestamp())
+        else:
+            master_enriched.sort(key=lambda x: (x["priority_level"], -x["datetime"].timestamp()))
+
+        upcoming_agenda = get_upcoming_30_day_agenda()
+
+        bist_p = market_data.get("BIST 100", {}).get("price") or 0.0
+        bist_c = market_data.get("BIST 100", {}).get("change") or 0.0
+        usd_p = market_data.get("USD/TRY", {}).get("price") or 0.0
+        gold_p = market_data.get("Goud Ons ($)", {}).get("price") or 0.0
+        gram_p = market_data.get("Gram Goud (₺)", {}).get("price") or 0.0
+        gram_silv_p = market_data.get("Gram Zilver (₺)", {}).get("price") or 0.0
+        silv_p = market_data.get("Zilver Ons ($)", {}).get("price") or 0.0
+        brent_p = market_data.get("Brent Olie ($)", {}).get("price") or 0.0
+        vix_p = market_data.get("VIX (Angst)", {}).get("price") or 0.0
+
+        scandal_count = sum(1 for x in master_enriched if x["priority_level"] == 1)
+        pos_count = sum(1 for x in master_enriched if x.get("sentiment_type") == "pos")
+        neg_count = sum(1 for x in master_enriched if x.get("sentiment_type") == "neg")
+        warn_count = sum(1 for x in master_enriched if x.get("sentiment_type") == "warn")
+
+    st.success(
+        f"✅ Ultimate Master Analyse voltooid! Van de **{total_raw_count}** opgehaalde berichten "
+        f"zijn **{removed_dups_count} dubbele berichten samengevoegd**. Er staan nu **{len(master_enriched)} unieke dossiers** klaar."
+    )
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        f"🌐 Agent 1: Master News Hub ({len(master_enriched)} Unieke Dossiers)",
+        "🕵️‍♂️ Agent 2: Fact-Check & Koers-Matrix",
+        "💡 Agent 3: Beleggingsadvies",
+        "⚖️ Agent 4: Risico-Audit",
+        f"📅 Agent 5: Komende 30-Dagen Agenda ({len(upcoming_agenda)})"
+    ])
+
+    # ==========================================================================
+    # TAB 1: AGENT 1 — MASTER NEWS HUB
+    # ==========================================================================
+    with tab1:
+        st.markdown("### 🌐 Agent 1: Master News Hub (Met Live Aandelen-Chips & Inhoudelijke Ontdubbeling)")
+
+        s_col1, s_col2, s_col3, s_col4 = st.columns(4)
+        s_col1.metric("🟢 Positieve Katalysatoren", f"{pos_count} dossiers")
+        s_col2.metric("🔴 Hoog Risico / Schandaal / Druk", f"{neg_count} dossiers")
+        s_col3.metric("⚠️ Beleid & Macro-Impact", f"{warn_count} dossiers")
+        s_col4.metric("🧹 Samengevoegde Duplicaten", f"{removed_dups_count} artikelen")
+
+        f_col1, f_col2 = st.columns([2, 2])
+        with f_col1:
+            prio_filter = st.selectbox(
+                "🔍 Filter op prioriteit / categorie:",
+                [
+                    "Alle Unieke Dossiers",
+                    "🔥 Prio 1: Schandalen, Justitie & Eigen Zoekopdracht",
+                    "📈 Prio 2: Macro, Resmi Gazete & BIST 100",
+                    "🏢 Prio 3: Bedrijfsnieuws (KAP)",
+                    "🌍 Prio 4: Globaal & Edelmetalen"
+                ],
+                index=0
+            )
+        with f_col2:
+            inline_filter = st.text_input("⚡ Snel filteren binnen de geladen resultaten:", value="", placeholder="Typ een woord om direct te filteren...")
+
+        if prio_filter == "🔥 Prio 1: Schandalen, Justitie & Eigen Zoekopdracht":
+            filtered_master = [x for x in master_enriched if x["priority_level"] == 1]
+        elif prio_filter == "📈 Prio 2: Macro, Resmi Gazete & BIST 100":
+            filtered_master = [x for x in master_enriched if x["priority_level"] == 2]
+        elif prio_filter == "🏢 Prio 3: Bedrijfsnieuws (KAP)":
+            filtered_master = [x for x in master_enriched if x["priority_level"] == 3]
+        elif prio_filter == "🌍 Prio 4: Globaal & Edelmetalen":
+            filtered_master = [x for x in master_enriched if x["priority_level"] == 4]
+        else:
+            filtered_master = master_enriched
+
+        if inline_filter.strip():
+            q_in = inline_filter.strip().lower()
+            filtered_master = [
+                x for x in filtered_master
+                if q_in in x["title_nl"].lower() or q_in in x["title_orig"].lower() or q_in in x["jip_summary"].lower()
+            ]
+
+        if filtered_master:
+            export_lines = [f"# BIST 100 & Turkse Economie Master Rapport ({datetime.now().strftime('%d-%m-%Y %H:%M')})\n"]
+            for idx, item in enumerate(filtered_master, 1):
+                chips_html_list = []
+                for tk in sorted(item.get("_matched_tickers", set())):
+                    snap = stock_tech_map.get(tk)
+                    if snap and snap.get("price") is not None:
+                        chg_color = "#166534" if snap["change"] >= 0 else "#991b1b"
+                        chips_html_list.append(
+                            f'<span class="stock-chip">'
+                            f'📊 <strong>{tk}</strong>: ₺{snap["price"]:,.2f} '
+                            f'(<span style="color:{chg_color};font-weight:bold;">{snap["change"]:+.2f}%</span>) '
+                            f'| RSI: <strong>{snap["rsi"]}</strong> | S1: ₺{snap["s1"]} / R1: ₺{snap["r1"]} | {snap["trend"]}'
+                            f'</span>'
+                        )
+                stock_chips_row = f"<div style='margin: 6px 0;'>{''.join(chips_html_list)}</div>" if chips_html_list else ""
+
+                extra_links = item.get("extra_source_links", [])
+                if extra_links:
+                    links_anchors = " · ".join([
+                        f'<a href="{es["link"]}" target="_blank" style="color: #334155; text-decoration: underline;">{es["name"]}</a>'
+                        for es in extra_links[:5]
+                    ])
+                    also_reported = (
+                        f"<br><span style='font-size: 12px; color: #475569;'>"
+                        f"🧠 <em>Zelfde inhoud (in andere vorm) ook gemeld door: {links_anchors} — automatisch samengevoegd tot 1 dossier.</em>"
+                        f"</span>"
+                    )
+                else:
+                    also_reported = ""
+
+                st.markdown(
+                    f"""<div class="{item['card_class']}">
+                        <div style="margin-bottom: 6px;">
+                            <span class="prio-pill">{item['priority_label']}</span> &nbsp; <span class="topic-pill">{item['topic_readable']}</span> &nbsp; {item['badge_html']} &nbsp; <strong>#{idx} | 🕒 {item['date_str']} | Bron: {item['source']}</strong>
+                        </div>
+                        <span style="font-size: 17px; font-weight: bold; color: #0f172a;">{item['title_nl']}</span><br>
+                        <span style="font-size: 12px; color: #64748b;">Originele kop: {item['title_orig']}</span>
+                        {also_reported}<br>
+                        <span style="font-size: 13px; color: #1e3a8a; font-weight: 600;">🎯 Geraakte Sectoren / Markten: {item['sector_str']}</span>
+                        {stock_chips_row}
+                        <hr style="margin: 8px 0; border: 0; border-top: 1px solid #cbd5e1;">
+                        <p style="margin-bottom: 6px;">🗣️ {item['jip_summary']}</p>
+                        <p style="margin-bottom: 8px;">📊 {item['econ_impact']}</p>
+                        🔗 <a href="{item['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8;">Klik hier om het originele hoofd-artikel te openen ({item['source']})</a>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+
+                export_lines.append(
+                    f"## #{idx} [{item['priority_label']}] {item['title_nl']} ({item['date_str']} - {item['source']})\n"
+                    f"- Originele kop: {item['title_orig']}\n"
+                    f"- Geraakte Sectoren: {item['sector_str']}\n"
+                    f"- Jip-en-Janneketaal: {item['jip_summary']}\n"
+                    f"- Economische impact: {item['econ_impact']}\n"
+                    f"- Bronlink: {item['link']}\n\n"
+                )
+
+            st.download_button(
+                label="📥 Download Volledig Nieuws- & Analyse Dossier (.md / Tekst)",
+                data="\n".join(export_lines),
+                file_name=f"BIST100_Master_Dossier_{datetime.now().strftime('%Y%m%d_%H%M')}.md",
+                mime="text/markdown"
+            )
+        else:
+            st.warning("Geen artikelen gevonden voor dit filter.")
+
+    # ==========================================================================
+    # TAB 2: AGENT 2 — FACT-CHECK & TECHNISCHE MATRIX
+    # ==========================================================================
+    with tab2:
+        st.markdown("### 🕵️‍♂️ Agent 2: De Waarheids-Filter & Live Technische Aandelen-Matrix")
+        st.markdown(
+            f"- ✅ **Dubbele Bron-laag Actief:** Google News RSS + rechtstreekse Turkse kranten-feeds.\n"
+            f"- ✅ **Slimme Persoons- & Dossier-Ontdubbeling:** Van de `{total_raw_count}` artikelen zijn `{removed_dups_count}` berichten met dezelfde strekking samengevoegd.\n"
+            f"- ✅ **Koersdata Verificatie:** BIST 100 (`{bist_p:,.0f}`), USD/TRY (`₺{usd_p:,.2f}`), Gram Goud (`₺{gram_p:,.2f}`) en Gram Zilver (`₺{gram_silv_p:,.2f}`)."
+        )
+
+        if stock_tech_map:
+            st.markdown("#### 📊 Live Technische Matrix (Koers, RSI & Steun/Weerstand van Geselecteerde / Genoemde BIST-Aandelen)")
+            tech_rows = []
+            for tk, sn in stock_tech_map.items():
+                tech_rows.append({
+                    "Ticker": tk,
+                    "Koers (₺)": sn["price"],
+                    "Dagmutatie (%)": sn["change"],
+                    "RSI (14)": sn["rsi"],
+                    "Steun S1 (₺)": sn["s1"],
+                    "Weerstand R1 (₺)": sn["r1"],
+                    "Trend (vs SMA20)": sn["trend"]
+                })
+            st.dataframe(pd.DataFrame(tech_rows), use_container_width=True, hide_index=True)
+
+    # ==========================================================================
+    # TAB 3: AGENT 3 — BELEGGINGSADVIES
+    # ==========================================================================
+    with tab3:
+        st.markdown("### 💡 Agent 3: Concreet Beleggingsadvies in Jip-en-Janneketaal")
+        st.markdown(
+            f"- **Gebruik de nieuwe Koers/RSI-chips in Agent 1:** Zie je positief KAP-nieuws bij een BIST 100-aandeel waarvan de **RSI tussen 35 en 60** ligt en de koers boven Steun **S1** noteert? Dat biedt technisch de veiligste instap.\n"
+            f"- **Vermijd Prio-1 Schandaalfondsen:** Blijf weg bij kleine fondsen die in een SPK-handelsverbod (`işlem yasağı` / `brüt takas`) of manipulatie-onderzoek zitten.\n"
+            f"- **Edelmetaal-Buffer:** Met **Gram Goud op ₺{gram_p:,.2f}** en **Gram Zilver op ₺{gram_silv_p:,.2f}** heb je een directe verzekering tegen politieke en geopolitieke schokken."
+        )
+
+    # ==========================================================================
+    # TAB 4: AGENT 4 — RISICO-AUDIT
+    # ==========================================================================
+    with tab4:
+        st.markdown("### ⚖️ Agent 4: Eindcontrole & Risico-Audit")
+        st.warning(
+            f"**Belangrijkste Risico's:**\n"
+            f"1. **Toezicht- en Schandaalrisico (`{scandal_count}` unieke Prio-1 dossiers):** Lopende SPK- en justitie-onderzoeken.\n"
+            f"2. **Valutarisico:** USD/TRY op **₺{usd_p:,.2f}**.\n"
+            f"3. **Marktvolatiliteit:** VIX op **{vix_p:,.2f}** en Brent Olie op **${brent_p:,.2f}**."
+        )
+
+    # ==========================================================================
+    # TAB 5: AGENT 5 — KOMENDE 30-DAGEN MACRO-AGENDA
+    # ==========================================================================
+    with tab5:
+        st.markdown("### 📅 Agent 5: Toekomstige 30-Dagen Macro-Agenda (Oplopend)")
+        if upcoming_agenda:
+            for idx, ev in enumerate(upcoming_agenda, 1):
+                days_left = (ev["date"] - datetime.now(timezone.utc).date()).days
+                days_label = "Vandaag!" if days_left == 0 else f"Over {days_left} dagen"
+                st.markdown(
+                    f"""<div class="agenda-card">
+                        <strong>#{idx} | 📅 Datum: {ev['time_str']} ({days_label})</strong><br>
+                        <span style="font-size: 17px; font-weight: bold; color: #1e3a8a;">{ev['title']}</span>
+                        <hr style="margin: 8px 0; border: 0; border-top: 1px solid #93c5fd;">
+                        <p style="margin-bottom: 6px;">🗣️ {ev['jip_summary']}</p>
+                        <p style="margin-bottom: 8px;">📊 {ev['econ_impact']}</p>
+                        🔗 <a href="{ev['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8;">Klik hier voor de officiële bron & kalenderpagina</a>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.info("Geen geplande macro-evenementen gevonden binnen de komende 30 dagen.")
+
+else:
+    st.info("👈 Kies in de zijbalk je instellingen (of typ een vrije zoekopdracht) en klik op **Start Volledige Master Analyse**.")
