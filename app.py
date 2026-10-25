@@ -20,7 +20,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Opmaak voor overzichtelijke artikel-kaarten
+# Opmaak voor overzichtelijke artikel-kaarten en impact-badges
 st.markdown("""
 <style>
     .main-header { font-size: 24px; font-weight: bold; color: #1E3A8A; }
@@ -45,7 +45,7 @@ st.markdown("""
         border-right: 1px solid #fecaca;
         border-bottom: 1px solid #fecaca;
     }
-    .agenda-card {
+    .positive-card {
         background-color: #f0fdf4;
         border-left: 5px solid #16a34a;
         padding: 14px 18px;
@@ -55,14 +55,28 @@ st.markdown("""
         border-right: 1px solid #bbf7d0;
         border-bottom: 1px solid #bbf7d0;
     }
+    .agenda-card {
+        background-color: #eff6ff;
+        border-left: 5px solid #2563eb;
+        padding: 14px 18px;
+        margin-bottom: 14px;
+        border-radius: 6px;
+        border-top: 1px solid #bfdbfe;
+        border-right: 1px solid #bfdbfe;
+        border-bottom: 1px solid #bfdbfe;
+    }
+    .badge-neg { background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+    .badge-pos { background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+    .badge-warn { background-color: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+    .badge-info { background-color: #e0e7ff; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">🇹🇷 BIST 100 & Turkse Economie Master Scanner</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-header">🇹🇷 BIST 100 & Turkse Economie Master Scanner (Pro Edition)</p>', unsafe_allow_html=True)
 st.markdown(
-    "Live scanner voor **Borsa İstanbul (alle 100 BIST-aandelen)**, **SPK- & Fondsschandalen**, "
-    "**Politieke & Geopolitieke Marktimpact**, **Goud & Zilver** (max 3 dagen oud, oplopend op datum) "
-    "en een **toekomstige 30-dagen Macro-Agenda** — elk bericht voorzien van een **samenvatting in Jip-en-Janneketaal + bronlink**."
+    "Live scanner voor **Borsa İstanbul (alle 100 BIST-aandelen)**, **SPK- & Fondsschandalen**, **Resmi Gazete**, "
+    "**Brüt Takas & Handelsverboden**, **Top-Economen**, **CDS & Buitenlands Kapitaal** (nieuwste nieuws bovenaan, aflopend op datum) "
+    "en een **toekomstige 30-dagen Macro-Agenda** (oplopend op datum)."
 )
 
 # --- VOLLEDIGE LIJST VAN ALLE 100 UNIEKE BIST 100 AANDELEN ---
@@ -117,9 +131,9 @@ st.session_state.gemini_auth = st.sidebar.text_input(
     "Gemini / Vertex AI Key (Optioneel):",
     type="password",
     value=st.session_state.gemini_auth,
-    help="Ook zonder werkende API-key maakt de ingebouwde Jip-en-Janneke Engine voor elk artikel een Nederlandse samenvatting."
+    help="De ingebouwde Jip-en-Janneke Engine voorziet elk artikel standaard van een Nederlandse samenvatting en sector-impact."
 )
-st.sidebar.success("✅ Ingebouwde Samenvattings-Engine & Economische Filter actief!")
+st.sidebar.success("✅ 5 Pro-Modules & Nieuwste-Bovenaan Sortering actief!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader(f"🎯 BIST 100 Selectie ({len(BIST_100_STOCKS)} Aandelen + Index)")
@@ -160,13 +174,16 @@ HARD_EXCLUDE_WORDS = [
 ECONOMIC_POLITICAL_WHITELIST = [
     "ekonomi", "borsa", "bist", "hisse", "spk", "sermaye piyasası", "fon", "tasfiye", "manipülasyon",
     "soruşturma", "operasyon", "gözaltı", "tutuklama", "kayyum", "tmsf", "mal varlığı", "vurgun",
-    "ceza", "görevden alındı", "atama", "resmi gazete", "tcmb", "merkez bankası", "faiz", "ppk",
-    "enflasyon", "tüik", "mehmet şimşek", "şimşek", "erdoğan", "cumhurbaşkanı", "cevdet yılmaz",
-    "karahan", "hazine", "maliye", "vergi", "bütçe", "cari açık", "rezerv", "kur", "dolar", "euro",
-    "altın", "gümüş", "petrol", "brent", "tahvil", "cds", "kredi notu", "moody", "fitch", "s&p",
+    "ceza", "görevden alındı", "atama", "resmi gazete", "cumhurbaşkanı kararı", "ötv", "tcmb",
+    "merkez bankası", "faiz", "ppk", "enflasyon", "tüik", "mehmet şimşek", "şimşek", "erdoğan",
+    "cumhurbaşkanı", "cevdet yılmaz", "karahan", "hazine", "maliye", "vergi", "bütçe", "cari açık",
+    "rezerv", "kur", "dolar", "euro", "altın", "gümüş", "petrol", "brent", "tahvil", "cds",
+    "kredi notu", "moody", "fitch", "s&p", "yabancı yatırımcı", "yabancı takas", "brüt takas",
+    "işlem yasağı", "tedbir", "bedelsiz", "bedelli", "sermaye artırımı", "mahfi eğilmez",
+    "özgür demirtaş", "emre alkin", "hakan kara", "islam memiş", "ışık ökte", "tunç şatıroğlu",
     "imf", "dünya bankası", "trump", "abd", "avrupa birliği", "yaptırım", "gümrük", "ticaret",
     "ihracat", "ithalat", "sanayi", "büyüme", "işsizlik", "asgari ücret", "banka", "holding",
-    "bilanço", "temettü", "kap", "halka arz", "ihale", "yatırım", "kâr", "zarar", "kردi", "kredi",
+    "bilanço", "temettü", "kap", "halka arz", "ihale", "yatırım", "kâr", "zarar", "kredi",
     "belediye", "meclis", "kanun", "yasa", "mahkeme", "adliye", "savcılık",
     "goud", "zilver", "rente", "inflatie", "oorlog", "olie", "geopolitiek", "fed", "ecb"
 ]
@@ -185,7 +202,7 @@ def is_economically_relevant(title, description="", extra_tickers=None):
             return True
     return False
 
-# --- AUTOMATISCHE VERTALING NAAR NEDERLANDS (ZONDER API KEY NODIG) ---
+# --- AUTOMATISCHE VERTALING NAAR NEDERLANDS ---
 def translate_to_nl(text):
     if not text or len(text.strip()) < 3:
         return text
@@ -208,76 +225,146 @@ def clean_html_text(raw_html):
     clean = re.sub(r'\s+', ' ', clean).strip()
     return clean
 
+# --- SECTOR- EN KOERSIMPACT DETECTIE PER ARTIKEL ---
+def detect_sector_and_badge(combined_text, mentioned_stocks):
+    sectors = []
+    if any(w in combined_text for w in ["banka", "faiz", "tcmb", "kredi", "akbnk", "garan", "ykbnk", "isctr", "halkb", "vakbn", "rente"]):
+        sectors.append("🏦 Banken (AKBNK, GARAN, YKBNK, ISCTR)")
+    if any(w in combined_text for w in ["savunma", "ihale", "asels", "sdttr", "altny", "oorlog", "navo", "defensie"]):
+        sectors.append("🛡️ Defensie (ASELS, SDTTR, ALTNY)")
+    if any(w in combined_text for w in ["havayolu", "uçuş", "turizm", "thyao", "pgsus", "tavhl", "clebi", "luchtvaart"]):
+        sectors.append("✈️ Luchtvaart & Toerisme (THYAO, PGSUS, TAVHL)")
+    if any(w in combined_text for w in ["petrol", "enerji", "elektrik", "doğalgaz", "tuprs", "astor", "enjsa", "petkm", "cwene", "smrtg", "olie"]):
+        sectors.append("⚡ Energie & Raffinage (TUPRS, ASTOR, ENJSA)")
+    if any(w in combined_text for w in ["perakende", "market", "gıda", "enflasyon", "bimas", "mgros", "sokm", "ulker", "ccola"]):
+        sectors.append("🛒 Supermarkten & Voeding (BIMAS, MGROS, SOKM)")
+    if any(w in combined_text for w in ["otomotiv", "ihracat", "froto", "toaso", "doas", "otkar", "kchol"]):
+        sectors.append("🚗 Auto & Export-Holdings (FROTO, TOASO, KCHOL, SAHOL)")
+    if any(w in combined_text for w in ["konut", "gyo", "çimento", "inşaat", "ekgyo", "enkai", "oyakc", "cimsa"]):
+        sectors.append("🏗️ Vastgoed & Bouw (EKGYO, ENKAI, OYAKC)")
+
+    if mentioned_stocks:
+        sectors.insert(0, f"🎯 Specifiek aandeel: {', '.join(mentioned_stocks)}")
+    if not sectors:
+        sectors.append("📈 Brede BIST 100 Markt & USD/TRY")
+
+    sector_str = " · ".join(sectors[:3])
+
+    # Bepaal Impact Badge
+    if any(w in combined_text for w in ["tutuklama", "gözaltı", "soruşturma", "ceza", "işlem yasağı", "brüt takas", "kayyum", "skandal", "vurgun", "yaptırım", "zarar", "düşüş"]):
+        badge_html = '<span class="badge-neg">🔴 HOOG RISICO / KOERSDRUK OP SPECULATIEVE FONDSEN</span>'
+    elif any(w in combined_text for w in ["rekor kar", "temettü", "bedelsiz", "ihale", "anlaşma", "not artışı", "yabancı girişi", "büyüme", "yatırım"]):
+        badge_html = '<span class="badge-pos">🟢 POSITIEVE KATALYSATOR VOOR KOERS</span>'
+    elif any(w in combined_text for w in ["resmi gazete", "vergi", "ötv", "faiz kararı", "enflasyon", "trump", "fed"]):
+        badge_html = '<span class="badge-warn">⚠️ BELEID & MACRO-IMPACT OP BIST 100</span>'
+    else:
+        badge_html = '<span class="badge-info">⚖️ MARKT- & ANALISTEN DUIDING</span>'
+
+    return badge_html, sector_str
+
 # --- SLIMME JIP-EN-JANNEKETAAL & ECONOMISCHE IMPACT ENGINE PER ARTIKEL ---
 def build_jip_en_janneke_analysis(title_tr, title_nl, desc_nl, category_tag, tickers_clean):
     combined = f"{title_tr} {title_nl} {desc_nl}".lower()
-
-    # Detecteer of specifieke geselecteerde aandelen worden genoemd
     mentioned_stocks = [t for t in tickers_clean if t.lower() in combined]
-    stock_badge = f" (Raakt specifiek: **{', '.join(mentioned_stocks)}**)" if mentioned_stocks else ""
+    badge_html, sector_str = detect_sector_and_badge(combined, mentioned_stocks)
 
-    # 1. Fondsschandaal, SPK, Arrestaties & Manipulatie-onderzoeken
-    if any(w in combined for w in ["fon", "spk", "manipülasyon", "manipulatie", "tutuklama", "gözaltı", "aangehouden", "gearresteerd", "tasfiye", "tmsf", "mal varlığı", "soruşturma", "onderzoek"]):
+    # 1. SPK Bulletin, Brüt Takas, Handelsverboden & Kapitaalverhogingen
+    if any(w in combined for w in ["brüt takas", "işlem yasağı", "tedbir", "spk bülteni", "bedelsiz", "bedelli", "sermaye artırımı"]):
         jip_summary = (
-            f"**Wat is er aan de hand:** De Turkse beurswaakhond (SPK) en justitie treden hard op vanwege het grote fondsen- en beursmanipulatieschandaal. "
-            f"In dit bericht gaat het over: *{title_nl}*. "
-            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Er vinden arrestaties, ondervragingen of bevriezingen van rekeningen plaats bij verdachte fondsen en handelaren.'}"
+            f"**Wat is er aan de hand:** Beurswaakhond SPK of Borsa İstanbul heeft een officieel besluit genomen: *{title_nl}*. "
+            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Dit gaat over handelsrestricties (brüt takas / handelsverboden voor manipulatoren) of goedkeuring van een aandelensplitsing (bedelsiz/bedelli).'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Impact op BIST 100{stock_badge}:** Op de korte termijn zorgt dit voor onrust en verkoopdruk bij kleine, speculatieve aandelen en betrokken fondsen (zoals eerder bij IEYHO, VSNMD, ODINE en TRHOL). "
-            f"Voor de grote, solide bedrijven in de **BIST 100** is het opschonen van de beurs op langere termijn juist gezond, omdat het vertrouwen van grote buitenlandse beleggers hierdoor herstelt."
+            f"**Economisch vooruitzicht & Beursimpact:** Bij een **handelsverbod (`işlem yasağı`) of `brüt takas`** droogt de speculatieve handel in dat aandeel direct op en kan de koers flink schommelen. "
+            f"Gaat het om een goedgekeurde **gratis aandelensplitsing (`bedelsiz sermaye artırımı`)**, dan reageren Turkse particuliere beleggers daar juist vaak enthousiast en positief op."
+        )
+        card_class = "scandal-card" if ("yasağı" in combined or "brüt" in combined or "ceza" in combined) else "positive-card"
+
+    # 2. Fondsschandaal, SPK-Operaties, Arrestaties & Manipulatie-onderzoeken
+    elif any(w in combined for w in ["fon", "spk", "manipülasyon", "manipulatie", "tutuklama", "gözaltı", "aangehouden", "gearresteerd", "tasfiye", "tmsf", "mal varlığı", "soruşturma", "onderzoek"]):
+        jip_summary = (
+            f"**Wat is er aan de hand:** Justitie en beurswaakhond SPK grijpen in bij het grote fondsen- en beursmanipulatieschandaal: *{title_nl}*. "
+            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Er vinden arrestaties, ondervragingen, fondsvereffeningen of bevriezingen van vermogen plaats bij verdachte partijen.'}"
+        )
+        econ_impact = (
+            f"**Economisch vooruitzicht & Beursimpact:** Op de korte termijn zorgt dit voor nervositeit en verkoopdruk bij kleine, speculatieve aandelen en betrokken beleggingsfondsen. "
+            f"Voor de gevestigde **BIST 100-bedrijven** is deze schoonmaak positief: het haalt oplichters uit de markt en vergroot het vertrouwen van grote buitenlandse fondsen."
         )
         card_class = "scandal-card"
 
-    # 2. Politiek, Burgemeesters, Kayyum, Bestuurders & Ontslagen
-    elif any(w in combined for w in ["belediye", "burgemeester", "kayyum", "görevden alındı", "ontslagen", "erdoğan", "chp", "ak parti", "siyaset", "meclis", "kabine", "wet", "kanun"]):
+    # 3. Resmi Gazete (Staatsblad), Belastingen (ÖTV) & Presidentiële Besluiten
+    elif any(w in combined for w in ["resmi gazete", "cumhurbaşkanı kararı", "ötv", "vergi", "görevden alma", "atama kararları"]):
         jip_summary = (
-            f"**Wat is er aan de hand:** Belangrijke politieke of bestuurlijke ontwikkeling in Turkije: *{title_nl}*. "
-            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Politieke besluiten, benoemingen of juridische ingrepen bij bestuurders trekken direct de aandacht van de financiële markten.'}"
+            f"**Wat is er aan de hand:** Nieuw officieel overheidsbesluit gepubliceerd in het Turkse Staatsblad (*Resmi Gazete*): *{title_nl}*. "
+            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Nieuwe wetgeving, belastingmaatregelen of benoemingen/ontslagen van topfunctionarissen zijn direct van kracht geworden.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Impact op BIST 100{stock_badge}:** Beleggers op Borsa İstanbul houden niet van politieke onzekerheid. "
-            f"Als politieke spanningen oplopen (zoals bij arrestaties van bestuurders of onverwachte wisselingen aan de top), zie je vaak dat de Turkse Lira licht onder druk komt en bank- en holdingaandelen in de **BIST 100** tijdelijk terughoudend reageren."
+            f"**Economisch vooruitzicht & Beursimpact:** Besluiten in de *Resmi Gazete* hebben direct bij beursopening effect. "
+            f"Verhogingen van belastingen (zoals ÖTV op auto's, brandstof of alcohol) raken specifieke sectoren (zoals **DOAS, FROTO, TOASO, AEFES**), terwijl nieuwe subsidies of investeringsplannen juist voor koerswinst zorgen."
+        )
+        card_class = "news-card"
+
+    # 4. Turkse Top-Economen & Beursanalisten Duiding
+    elif any(w in combined for w in ["mahfi eğilmez", "özgür demirtaş", "emre alkin", "hakan kara", "islam memiş", "ışık ökte", "tunç şatıroğlu"]):
+        jip_summary = (
+            f"**Wat is er aan de hand:** Een vooraanstaande Turkse econoom of marktstrateeg geeft een scherpe waarschuwing of analyse: *{title_nl}*. "
+            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Onafhankelijke duiding over de werkelijke inflatie, het rentebeleid, de Lira of de richting van Borsa İstanbul en goud.'}"
+        )
+        econ_impact = (
+            f"**Economisch vooruitzicht & Beursimpact:** Deze top-economen worden door honderdduizenden Turkse beleggers en bedrijfsleiders gevolgd. "
+            f"Hun waarschuwingen over de geldontwaarding, rente of goudprijs sturen direct het dagelijkse beleggerssentiment op de **BIST 100**."
+        )
+        card_class = "news-card"
+
+    # 5. CDS-Premie, Kredietwaardigheid (Fitch/Moody's/S&P) & Buitenlands Kapitaal
+    elif any(w in combined for w in ["cds", "yabancı yatırımcı", "yabancı takas", "fitch", "moody", "s&p", "kredi notu"]):
+        jip_summary = (
+            f"**Wat is er aan de hand:** Belangrijk signaal over het vertrouwen van internationale beleggers in Turkije: *{title_nl}*. "
+            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Nieuws over de Turkse CDS-risicopremie, kredietbeoordelaars of de wekelijkse aan- en verkopen van buitenlandse fondsen.'}"
+        )
+        econ_impact = (
+            f"**Economisch vooruitzicht & Beursimpact:** Grote buitenlandse fondsen kopen vrijwel uitsluitend de zwaargewichten in de **BIST 100** (zoals **AKBNK, GARAN, KCHOL, THYAO, BIMAS, TCELL**). "
+            f"Een dalende CDS-premie of instroom van buitenlands geld is de sterkste brandstof voor een brede beursrally."
+        )
+        card_class = "positive-card" if any(w in combined for w in ["giriş", "artış", "düşüş", "olumlu", "not artışı"]) else "news-card"
+
+    # 6. Politiek, Burgemeesters, Kayyum & Bestuurlijke Spanningen
+    elif any(w in combined for w in ["belediye", "burgemeester", "kayyum", "görevden alındı", "ontslagen", "erdoğan", "chp", "ak parti", "siyaset", "meclis"]):
+        jip_summary = (
+            f"**Wat is er aan de hand:** Politieke of bestuurlijke ontwikkeling in Turkije: *{title_nl}*. "
+            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Politieke spanningen, juridische stappen tegen bestuurders of belangrijke toespraken uit Ankara.'}"
+        )
+        econ_impact = (
+            f"**Economisch vooruitzicht & Beursimpact:** Politieke onrust zorgt er vaak voor dat binnenlandse en buitenlandse beleggers tijdelijk op de rem trappen. "
+            f"Banken en holdings in de **BIST 100** reageren hier het gevoeligst op, terwijl beleggers dan vaker schuilen in **Gram Goud** en **USD/TRY**."
         )
         card_class = "scandal-card"
 
-    # 3. Geopolitiek, VS / Trump, Sancties & Diplomatie
-    elif any(w in combined for w in ["trump", "abd", "vs", "amerika", "yaptırım", "sanctie", "israil", "iran", "rusya", "oorlog", "midden-oosten", "navo", "nato", "brics", "eu"]):
+    # 7. Geopolitiek, VS / Trump, Sancties & Diplomatie
+    elif any(w in combined for w in ["trump", "abd", "vs", "amerika", "yaptırım", "sanctie", "israil", "iran", "rusya", "oorlog", "midden-oosten", "navo", "nato"]):
         jip_summary = (
-            f"**Wat is er aan de hand:** Geopolitiek en diplomatiek nieuws met directe gevolgen voor de markt: *{title_nl}*. "
-            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Internationale betrekkingen, handelsafspraken en regionale spanningen beïnvloeden de risicopremie van Turkije.'}"
+            f"**Wat is er aan de hand:** Geopolitiek en diplomatiek nieuws met marktimpact: *{title_nl}*. "
+            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Ontwikkelingen rond de VS/Trump, handelsrelaties, sancties of spanningen in de regio.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Impact op BIST 100 & Goud{stock_badge}:** Spanning tussen Turkije en de VS (bijv. rond Trump, importtarieven of sancties) of escalatie in het Midden-Oosten zorgt meestal voor een vlucht naar **Goud en Dollars**. "
-            f"Defensiebedrijven zoals **ASELS (Aselsan)** profiteren hier vaak van, terwijl luchtvaart (**THYAO / PGSUS**) last kan hebben van hogere olieprijzen."
+            f"**Economisch vooruitzicht & Beursimpact:** Spanningen met de VS of onrust in het Midden-Oosten drijven de prijs van **Goud, Zilver en Olie** op. "
+            f"Op de BIST 100 profiteert defensie (**ASELS**), terwijl luchtvaart (**THYAO, PGSUS**) last krijgt van duurdere kerosine."
         )
         card_class = "news-card"
 
-    # 4. Centrale Bank (TCMB / Fed), Rente, Inflatie & Mehmet Şimşek
-    elif any(w in combined for w in ["tcmb", "merkez bankası", "faiz", "rente", "enflasyon", "inflatie", "şimşek", "karahan", "tüik", "fed", "dolar", "rezerv", "kredi notu"]):
-        jip_summary = (
-            f"**Wat is er aan de hand:** Nieuw bericht over het rente-, inflatie- of economisch beleid: *{title_nl}*. "
-            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Dit bericht gaat over de koers van de centrale bank en de aanpak van de geldontwaarding.'}"
-        )
-        econ_impact = (
-            f"**Economisch vooruitzicht & Impact op BIST 100{stock_badge}:** De rente en inflatie vormen de hoofdmotor van de **BIST 100**. "
-            f"Zolang de rente hoog is, blijft sparen aantrekkelijk en hebben bedrijven met veel schulden het lastig. Zodra de inflatie afkoelt en renteverlagingen dichterbij komen, geeft dat een sterke impuls aan Turkse banken (**AKBNK, GARAN, YKBNK**) en vastgoed (**EKGYO**)."
-        )
-        card_class = "news-card"
-
-    # 5. Bedrijfsnieuws, KAP, Kwartaalcijfers & Algemeen Beursnieuws
+    # 8. Centrale Bank (TCMB / Fed), Rente, Inflatie & Bedrijfsnieuws (KAP)
     else:
         jip_summary = (
-            f"**Wat is er aan de hand:** Financieel en beursgerelateerd nieuws: *{title_nl}*. "
-            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Actuele ontwikkeling rondom beursgenoteerde bedrijven, sectoren of de handel op Borsa İstanbul.'}"
+            f"**Wat is er aan de hand:** Economisch en financieel nieuws: *{title_nl}*. "
+            f"{desc_nl if desc_nl and desc_nl.lower() != title_nl.lower() else 'Actuele berichtgeving over het rente- en inflatiebeleid, bedrijfsresultaten (KAP) of de handel op Borsa İstanbul.'}"
         )
         econ_impact = (
-            f"**Economisch vooruitzicht & Impact op BIST 100{stock_badge}:** Dit bericht geeft inzicht in de winstgevendheid, nieuwe opdrachten (KAP) of het marktsentiment op de **BIST 100**. "
-            f"Sterke bedrijfscijfers en exportorders bieden bescherming tegen een zwakkere Lira."
+            f"**Economisch vooruitzicht & Beursimpact:** Geeft directe richting aan de waardering van **BIST 100-aandelen**. "
+            f"Dalende inflatie en sterke kwartaalcijfers ondersteunen de koersen; hoge rentes dwingen tot selectiviteit in bedrijven met veel eigen kasgeld."
         )
         card_class = "news-card"
 
-    return jip_summary, econ_impact, card_class
+    return jip_summary, econ_impact, card_class, badge_html, sector_str
 
 # --- HULPFUNCTIES VOOR LIVE MARKTDATA & PARALLELLE RSS OPHAAL ---
 @st.cache_data(ttl=300, show_spinner=False)
@@ -341,13 +428,11 @@ def fetch_single_rss_feed(args):
             if not raw_title or not link:
                 continue
 
-            # Verwijder bron-achtervoegsel uit titel indien dubbel
             clean_title = raw_title.rsplit(" - ", 1)[0].strip() if " - " in raw_title else raw_title.strip()
             clean_desc = clean_html_text(raw_desc)
             if source_name in clean_desc:
                 clean_desc = clean_desc.replace(source_name, "").strip(" -·")
 
-            # Controleer datum (strikt binnen max_days)
             dt = now_utc
             if pub_str:
                 try:
@@ -362,7 +447,6 @@ def fetch_single_rss_feed(args):
                 except Exception:
                     pass
 
-            # Strikte Economische & Politieke Filter (geen voetbal, geen losse misdaad)
             if not is_economically_relevant(clean_title, clean_desc, extra_tickers):
                 continue
 
@@ -391,13 +475,15 @@ def enrich_articles_with_dutch_summaries(items, tickers_clean):
             title_nl = item["title_orig"]
             desc_nl = item["desc_orig"]
 
-        jip_sum, econ_imp, card_cls = build_jip_en_janneke_analysis(
+        jip_sum, econ_imp, card_cls, badge_html, sector_str = build_jip_en_janneke_analysis(
             item["title_orig"], title_nl, desc_nl, item["category"], tickers_clean
         )
         item["title_nl"] = title_nl
         item["jip_summary"] = jip_sum
         item["econ_impact"] = econ_imp
         item["card_class"] = card_cls
+        item["badge_html"] = badge_html
+        item["sector_str"] = sector_str
         return item
 
     with ThreadPoolExecutor(max_workers=10) as ex:
@@ -409,7 +495,6 @@ def get_upcoming_30_day_agenda():
     today = datetime.now(timezone.utc).date()
     end_date = today + timedelta(days=30)
 
-    # Geverifieerde macro-economische kalender voor de komende periode
     scheduled_events = [
         {
             "date": datetime(2026, 10, 28, 19, 0, tzinfo=timezone.utc).date(),
@@ -421,8 +506,7 @@ def get_upcoming_30_day_agenda():
             ),
             "econ_impact": (
                 "**Economisch vooruitzicht:** Dit is het belangrijkste wereldwijde moment van de week. "
-                "Als de Fed hint op lagere rentes, is dat direct positief voor **Goud, Zilver** en opkomende markten zoals **Borsa İstanbul (BIST 100)**. "
-                "Een strenge toon maakt de Dollar sterker en zet edelmetalen tijdelijk onder druk."
+                "Als de Fed hint op lagere rentes, is dat direct positief voor **Goud, Zilver** en opkomende markten zoals **Borsa İstanbul (BIST 100)**."
             ),
             "link": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
         },
@@ -475,7 +559,7 @@ def get_upcoming_30_day_agenda():
                 "**Wat gaat er gebeuren:** Laatste dag waarop niet-geconsolideerde beursbedrijven op Borsa İstanbul hun derdekwartaalcijfers (bilanço) moeten publiceren op KAP."
             ),
             "econ_impact": (
-                "**Economisch vooruitzicht:** Zorgt voor sterke koersbewegingen per individueel aandeel. Bedrijven die ondanks de hoge rente en inflatieboekhouding "
+                "**Economisch vooruitzicht:** Zorgt voor sterke koersbewegingen per individueel aandeel. Bedrijven die ondanks de hoge rente "
                 "hun winstmarge op peil houden, worden direct beloond door beleggers."
             ),
             "link": "https://www.kap.org.tr/"
@@ -519,35 +603,9 @@ def get_upcoming_30_day_agenda():
         }
     ]
 
-    # Filter strikt op vandaag t/m komende 30 dagen en sorteer oplopend op datum
     future_events = [ev for ev in scheduled_events if today <= ev["date"] <= end_date]
-    future_events.sort(key=lambda x: x["date"])
+    future_events.sort(key=lambda x: x["date"])  # Agenda blijft oplopend (eerstvolgende bovenaan)
     return future_events
-
-# --- AI AANROEP (OPTIONEEL BOVENOP DE ARTIKEL-KAARTEN) ---
-def call_gemini_optional(prompt_text, system_instruction):
-    token = st.session_state.gemini_auth.strip()
-    if not token or token.startswith("AQ.Ab8"):
-        return None
-    full_prompt = f"{system_instruction}\n\n{prompt_text}" if system_instruction else prompt_text
-    payload = {"contents": [{"role": "user", "parts": [{"text": full_prompt}]}], "generationConfig": {"temperature": 0.2}}
-    data_bytes = json.dumps(payload).encode("utf-8")
-    q_token = urllib.parse.quote(token)
-    endpoints = [
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={q_token}",
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={q_token}"
-    ]
-    for url in endpoints:
-        try:
-            req = urllib.request.Request(url, data=data_bytes, headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                res_json = json.loads(resp.read().decode("utf-8"))
-                text = res_json["candidates"][0]["content"]["parts"][0]["text"]
-                if text and len(text.strip()) > 20:
-                    return text
-        except Exception:
-            continue
-    return None
 
 # --- LIVE MARKT TICKER BAR ---
 st.markdown("### 📊 Live Marktoverzicht")
@@ -566,10 +624,10 @@ for row_slice in [market_items[:4], market_items[4:8]]:
 st.markdown("---")
 
 # --- HOOFDPROGRAMMA ---
-st.markdown("### 🤖 Start de 6-Agent Master Scanner")
+st.markdown("### 🤖 Start de 6-Agent Master Scanner (Pro Edition)")
 st.markdown(
-    "Scant gelijktijdig het **SPK- & Fondsschandaal**, **politieke ingrepen & arrestaties**, **geopolitiek (VS/Trump)**, "
-    "**BIST 100 & gekozen aandelen** en de **komende 30-dagen Macro-Agenda** — elk item met een Nederlandse Jip-en-Janneketaal samenvatting en klikbare bronlink."
+    "Scant gelijktijdig het **SPK- & Fondsschandaal**, **SPK Bülteni / Brüt Takas**, **Resmi Gazete**, "
+    "**Top-Economen**, **CDS & Buitenlands Kapitaal**, **Politiek & Geopolitiek (VS/Trump)** en alle gekozen **BIST 100-aandelen**."
 )
 
 if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
@@ -577,18 +635,37 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
     tickers_clean = [t.split(" ")[0] for t in selected_tickers if t != BIST_INDEX_OPTION]
     tickers_str = ", ".join(tickers_clean) if tickers_clean else "Alle BIST 100 Hoofdfondsen"
 
-    with st.spinner("📡 Parallel ophalen en vertalen van SPK/fondsschandalen, politiek nieuws, top-media en BIST-aandelen..."):
-        # Gerichte OR-zoekopdrachten zodat Google News RSS daadwerkelijk alle schandalen, politiek en economie teruggeeft
+    with st.spinner("📡 Parallel ophalen van schandalen, SPK-bulletins, Resmi Gazete, top-economen, politiek en BIST-aandelen..."):
         rss_tasks = [
             (
                 "🚨 Fondsschandaal, SPK & Beurs-Operaties",
                 '("fon soruşturması" OR "SPK" OR "manipülasyon" OR "borsa operasyon" OR "fon tasfiye" OR "TMSF")',
-                "tr", 12, max_days_slider, tickers_clean
+                "tr", 10, max_days_slider, tickers_clean
+            ),
+            (
+                "⚠️ SPK Bulletin, Brüt Takas, Handelsverboden & Bedelsiz",
+                '("SPK bülteni" OR "işlem yasağı" OR "brüt takas" OR "tedbir kararı" OR "bedelsiz sermaye artırımı")',
+                "tr", 8, max_days_slider, tickers_clean
+            ),
+            (
+                "📜 Resmi Gazete (Staatsblad), Belastingen (ÖTV) & Besluiten",
+                '("Resmi Gazete" OR "Cumhurbaşkanı Kararı" OR "ÖTV" OR "vergi düzenlemesi") AND ("ekonomi" OR "atama" OR "görevden" OR "vergi" OR "borsa")',
+                "tr", 8, max_days_slider, tickers_clean
             ),
             (
                 "🏛️ Politiek, Justitie, Burgemeesters & Ontslagen",
                 '("görevden alındı" OR "kayyum" OR "gözaltı" OR "tutuklama" OR "belediye başkanı") AND ("ekonomi" OR "borsa" OR "SPK" OR "fon" OR "holding" OR "başkan")',
-                "tr", 10, max_days_slider, tickers_clean
+                "tr", 8, max_days_slider, tickers_clean
+            ),
+            (
+                "🧠 Turkse Top-Economen & Marktstrategen",
+                '("Mahfi Eğilmez" OR "Özgür Demirtaş" OR "Emre Alkin" OR "Hakan Kara" OR "İslam Memiş" OR "Işık Ökte" OR "Tunç Şatıroğlu")',
+                "tr", 8, max_days_slider, tickers_clean
+            ),
+            (
+                "海外 CDS-Premie, Kredietwaardigheid & Buitenlands Kapitaal",
+                '("CDS primi" OR "yabancı yatırımcı" OR "yabancı takas" OR "Fitch" OR "Moody\'s" OR "kredi notu") AND ("Türkiye" OR "borsa" OR "BIST")',
+                "tr", 8, max_days_slider, tickers_clean
             ),
             (
                 "🌍 Geopolitiek, Trump/VS, Sancties & Diplomatie",
@@ -598,7 +675,7 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
             (
                 "📈 BIST 100, TCMB, Rente & Top-Media (Bloomberg HT / Yeni Şafak / CNN Türk / Hürriyet)",
                 '("Borsa İstanbul" OR "BIST 100" OR "TCMB" OR "Mehmet Şimşek" OR "enflasyon" OR "faiz kararı")',
-                "tr", 12, max_days_slider, tickers_clean
+                "tr", 10, max_days_slider, tickers_clean
             ),
             (
                 "🌍 Wereldnieuws, Oorlog & Energie (NL)",
@@ -627,7 +704,6 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
         with ThreadPoolExecutor(max_workers=10) as executor:
             task_results = list(executor.map(fetch_single_rss_feed, rss_tasks))
 
-        # Splits Turkse items (Agent 1) en Globale/Edelmetaal items (Agent 2)
         raw_tr_items = []
         raw_nl_items = []
         seen_titles = set()
@@ -643,15 +719,14 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
                 else:
                     raw_nl_items.append(item)
 
-        # Vertaal en genereer per artikel een Jip-en-Janneketaal samenvatting + economisch vooruitzicht
         tr_enriched = enrich_articles_with_dutch_summaries(raw_tr_items, tickers_clean)
         nl_enriched = enrich_articles_with_dutch_summaries(raw_nl_items, tickers_clean)
 
-        # Sorteer ALLE artikelen chronologisch OPLOPEND op datum (zoals gevraagd)
-        tr_enriched.sort(key=lambda x: x["datetime"])
-        nl_enriched.sort(key=lambda x: x["datetime"])
+        # SORTERING NIEUWS: NIEUWSTE BOVENAAN (AFLOPEND OP DATUM, bijv. 25 -> 24 -> 23)
+        tr_enriched.sort(key=lambda x: x["datetime"], reverse=True)
+        nl_enriched.sort(key=lambda x: x["datetime"], reverse=True)
 
-        # Haal de toekomstige 30-dagen macro-agenda op (uitsluitend komende 30 dagen, oplopend gesorteerd)
+        # SORTERING AGENDA: KOMENDE 30 DAGEN OPLOPEND OP DATUM (eerstvolgende gebeurtenis bovenaan)
         upcoming_agenda = get_upcoming_30_day_agenda()
 
         bist_p = market_data.get("BIST 100", {}).get("price") or 0.0
@@ -663,16 +738,18 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
         brent_p = market_data.get("Brent Olie ($)", {}).get("price") or 0.0
         vix_p = market_data.get("VIX (Angst)", {}).get("price") or 0.0
 
-        scandal_count = sum(1 for x in tr_enriched if "Fondsschandaal" in x["category"] or "Politiek" in x["category"])
+        scandal_count = sum(
+            1 for x in tr_enriched
+            if any(k in x["category"] for k in ["Fondsschandaal", "Politiek", "SPK Bulletin"])
+        )
 
     st.success(
-        f"✅ Master Analyse voltooid! **{len(tr_enriched)} Turkse economische/politieke/schandaal-artikelen** "
-        f"(waarvan **{scandal_count} over SPK/fondsschandalen & politiek**), **{len(nl_enriched)} wereld/edelmetaal-artikelen** "
-        f"en **{len(upcoming_agenda)} toekomstige macro-agendapunten** geladen — allemaal chronologisch oplopend gesorteerd."
+        f"✅ Master Analyse voltooid! **{len(tr_enriched)} Turkse berichten** (nieuwste bovenaan, aflopend op datum), "
+        f"**{len(nl_enriched)} internationale berichten** en **{len(upcoming_agenda)} aankomende macro-agendapunten** geladen."
     )
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        f"🇹🇷 Agent 1: BIST, Politiek & Schandalen ({len(tr_enriched)})",
+        f"🇹🇷 Agent 1: BIST, Schandalen & Pro-Radars ({len(tr_enriched)})",
         f"🌍 Agent 2: Globaal & Edelmetalen ({len(nl_enriched)})",
         "🕵️‍♂️ Agent 3: Fact-Check",
         "💡 Agent 4: Beleggingsadvies",
@@ -681,31 +758,38 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
     ])
 
     # ==========================================================================
-    # TAB 1: AGENT 1 — BIST 100, POLITIEK, FONDSSCHANDAAL & AANDELEN
+    # TAB 1: AGENT 1 — NIEUWSTE BOVENAAN (AFLOPEND OP DATUM) + 5 PRO-UITBREIDINGEN
     # ==========================================================================
     with tab1:
-        st.markdown("### 🇹🇷 Agent 1: BIST 100, Fondsschandalen, Politiek & Aandelennieuws")
+        st.markdown("### 🇹🇷 Agent 1: BIST 100, Fondsschandalen, Resmi Gazete, SPK, Economen & Politiek")
         st.markdown(
-            f"**Actieve Focus:** {'📈 **BIST 100 Index (Algemeen)** + ' if is_bist100_general else ''}"
-            f"**Gekozen aandelen:** `{tickers_str}` | **Sortering:** Chronologisch oplopend op datum | "
-            f"**Filter:** 100% Economie, Politiek & Schandalen (sport en niet-economische misdaad automatisch geblokkeerd)."
+            f"**Volgorde:** 🕒 **Nieuwste nieuws bovenaan (aflopend op datum)** | "
+            f"**Actieve Focus:** {'📈 **BIST 100 Index (Algemeen)** + ' if is_bist100_general else ''}`{tickers_str}`"
         )
 
-        # Overkoepelende samenvatting bovenaan
+        # Snel-filter per categorie binnen Agent 1
+        available_cats = ["Alle Categorieën"] + sorted(list({x["category"] for x in tr_enriched}))
+        chosen_cat = st.selectbox("🔍 Filter op specifiek thema (of bekijk alles):", available_cats, index=0)
+
+        filtered_tr = tr_enriched if chosen_cat == "Alle Categorieën" else [x for x in tr_enriched if x["category"] == chosen_cat]
+
         st.info(
             f"**📌 Hoofdlijnen BIST 100 & Turkse Markt (Jip-en-Janneketaal):**\n"
             f"- **Beurs & Valuta:** De **BIST 100** staat op **{bist_p:,.0f} punten ({bist_c:+.2f}%)** en **USD/TRY** noteert **₺{usd_p:,.2f}**.\n"
-            f"- **Fondsschandaal & SPK-Operaties:** Justitie en beurswaakhond SPK voeren grootschalige onderzoeken en arrestaties uit rondom gemanipuleerde beleggingsfondsen en aandelen. Dit zorgt voor scherpe schommelingen bij kleinere fondsen, maar zuivert de markt voor de grote BIST 100-bedrijven.\n"
-            f"- **Rente & Politiek:** De hoge rente van de Turkse Centrale Bank (TCMB) en politieke en diplomatieke ontwikkelingen houden de markt scherp; hieronder staat **elk afzonderlijk nieuwsbericht** vertaald en samengevat met een klikbare bronlink."
+            f"- **5 Actieve Pro-Radars:** Naast het **fondsschandaal & politiek** scant Agent 1 nu live op de **Resmi Gazete (Staatsblad)**, **SPK-handelsverboden (`brüt takas` / `işlem yasağı`)**, **Turkse Top-Economen** en **CDS/Buitenlands Kapitaal**.\n"
+            f"- **Volgorde:** Het meest recente bericht staat op **#1** en loopt zo terug in de tijd."
         )
 
-        if tr_enriched:
-            for idx, item in enumerate(tr_enriched, 1):
+        if filtered_tr:
+            for idx, item in enumerate(filtered_tr, 1):
                 st.markdown(
                     f"""<div class="{item['card_class']}">
-                        <strong>#{idx} | 📅 {item['date_str']} | {item['category']} | Bron: {item['source']}</strong><br>
+                        <div style="margin-bottom: 6px;">
+                            {item['badge_html']} &nbsp; <strong>#{idx} | 🕒 {item['date_str']} | {item['category']} | Bron: {item['source']}</strong>
+                        </div>
                         <span style="font-size: 17px; font-weight: bold; color: #0f172a;">{item['title_nl']}</span><br>
-                        <span style="font-size: 12px; color: #64748b;">Originele kop: {item['title_orig']}</span>
+                        <span style="font-size: 12px; color: #64748b;">Originele kop: {item['title_orig']}</span><br>
+                        <span style="font-size: 13px; color: #1e3a8a; font-weight: 600;">🎯 Geraakte BIST-Sectoren: {item['sector_str']}</span>
                         <hr style="margin: 8px 0; border: 0; border-top: 1px solid #cbd5e1;">
                         <p style="margin-bottom: 6px;">🗣️ {item['jip_summary']}</p>
                         <p style="margin-bottom: 8px;">📊 {item['econ_impact']}</p>
@@ -714,24 +798,26 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
                     unsafe_allow_html=True
                 )
         else:
-            st.warning("Geen artikelen gevonden voor deze combinatie. Probeer de ouderdom-slider in de zijbalk op 4 of 5 dagen te zetten.")
+            st.warning("Geen artikelen gevonden voor dit filter.")
 
     # ==========================================================================
-    # TAB 2: AGENT 2 — WERELDNIEUWS, OORLOG, GOUD & ZILVER
+    # TAB 2: AGENT 2 — WERELDNIEUWS, OORLOG, GOUD & ZILVER (NIEUWSTE BOVENAAN)
     # ==========================================================================
     with tab2:
-        st.markdown("### 🌍 Agent 2: Wereldnieuws, Geopolitiek, Goud & Zilver (Oplopend op Datum)")
+        st.markdown("### 🌍 Agent 2: Wereldnieuws, Geopolitiek, Goud & Zilver (Nieuwste Bovenaan)")
         st.info(
             f"**📌 Samenvatting Edelmetalen & Wereldmarkt (Jip-en-Janneketaal):**\n"
             f"- **Goud & Zilver:** Goud staat op **${gold_p:,.2f}** per troy ounce (**₺{gram_p:,.2f} per gram** in Turkse Lira) en Zilver staat op **${silv_p:,.2f}**.\n"
-            f"- **Olie & Geopolitiek:** Brent Olie noteert **${brent_p:,.2f}** en de VIX-angstindex staat op **{vix_p:,.2f}**. Oplopende spanningen in het Midden-Oosten of Oekraïne stuwen direct de vraag naar veilige havens zoals goud en zilver."
+            f"- **Olie & Geopolitiek:** Brent Olie noteert **${brent_p:,.2f}** en de VIX-angstindex staat op **{vix_p:,.2f}**. Het nieuwste internationale bericht staat bovenaan."
         )
 
         if nl_enriched:
             for idx, item in enumerate(nl_enriched, 1):
                 st.markdown(
                     f"""<div class="news-card">
-                        <strong>#{idx} | 📅 {item['date_str']} | {item['category']} | Bron: {item['source']}</strong><br>
+                        <div style="margin-bottom: 6px;">
+                            {item['badge_html']} &nbsp; <strong>#{idx} | 🕒 {item['date_str']} | {item['category']} | Bron: {item['source']}</strong>
+                        </div>
                         <span style="font-size: 17px; font-weight: bold; color: #0f172a;">{item['title_nl']}</span>
                         <hr style="margin: 8px 0; border: 0; border-top: 1px solid #cbd5e1;">
                         <p style="margin-bottom: 6px;">🗣️ {item['jip_summary']}</p>
@@ -751,8 +837,7 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
         st.markdown(
             f"- ✅ **Koersdata Verificatie:** Alle live koersen (BIST 100: `{bist_p:,.0f}`, USD/TRY: `₺{usd_p:,.2f}`, Goud: `${gold_p:,.2f}`) zijn rechtstreeks geverifieerd via Yahoo Finance.\n"
             f"- ✅ **Strikte Relevantie-Check:** Niet-economisch nieuws (voetbal, sportuitslagen, entertainment en reguliere criminaliteit/drugszaken zonder beursimpact) is automatisch weggefilterd.\n"
-            f"- ✅ **Schandaal- & Politiek-Verificatie:** Er zijn **{scandal_count} actuele berichten** gedetecteerd over SPK-onderzoeken, het fondsschandaal en politiek-juridische ontwikkelingen.\n"
-            f"- ✅ **Datum-Controle:** Alle nieuwsberichten in Agent 1 en Agent 2 vallen binnen het venster van maximaal **{max_days_slider} dagen** en staan chronologisch oplopend gesorteerd."
+            f"- ✅ **Datum-Volgorde Controle:** Nieuws in Agent 1 en Agent 2 staat **aflopend gesorteerd (nieuwste bovenaan)**; de toekomstige 30-dagen agenda in Agent 6 staat **oplopend gesorteerd (eerstvolgende gebeurtenis bovenaan)**."
         )
 
     # ==========================================================================
@@ -761,10 +846,10 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
     with tab4:
         st.markdown("### 💡 Agent 4: Concreet Beleggingsadvies in Jip-en-Janneketaal")
         st.markdown(
-            f"#### 1. Wat betekent het huidige nieuws voor jouw BIST 100 portefeuille?\n"
-            f"- **Blijf weg bij speculatieve kleine fondsen:** Door het lopende **fondsschandaal en de SPK-arrestaties** zijn kleine, ondoorzichtige aandelen extra kwetsbaar voor koersvallen en handelsstoppen. Richt je op grote, liquide **BIST 100-bedrijven** met echte kasstromen en exportinkomsten (zoals **THYAO, ASELS, KCHOL, TUPRS, FROTO**).\n"
-            f"- **Houd een valutabuffer aan via Goud & Zilver:** Met een USD/TRY koers van **₺{usd_p:,.2f}** en Gram Goud op **₺{gram_p:,.2f}** blijft edelmetaal de sterkste verzekering tegen zowel politieke verrassingen in Turkije als geopolitieke spanningen.\n"
-            f"- **Spreid je instapmomenten rond centrale-bankdatums:** Koop niet alles op één dag vlak voor een Fed- of TCMB-rentebesluit, maar verdeel je aankopen in 2 tot 3 stappen."
+            f"#### 1. Hoe handel je slim op basis van deze 5 Pro-Radars?\n"
+            f"- **Controleer altijd de `🔴 HOOG RISICO` & `SPK Bulletin` kaarten in Agent 1:** Staat een aandeel in een `brüt takas`-maatregel of in het fondsschandaal-onderzoek? Blijf daar dan weg en kies voor liquide **BIST 100-zwaargewichten** (**THYAO, ASELS, KCHOL, TUPRS, AKBNK, GARAN, BIMAS**).\n"
+            f"- **Let op de `Resmi Gazete` & `CDS`-signalen:** Een dalende CDS-risicopremie en buitenlandse instroom zijn het startschot voor stijgingen in Turkse bankaandelen en grote holdings.\n"
+            f"- **Houd Gram Goud (`₺{gram_p:,.2f}`) en Zilver (`${silv_p:,.2f}`) aan als buffer:** Zo ben je beschermd tegen zowel onverwachte nachtelijke besluiten als geopolitieke spanningen."
         )
 
     # ==========================================================================
@@ -774,32 +859,33 @@ if st.button("🚀 Start Volledige 6-Agent Master Analyse", type="primary"):
         st.markdown("### ⚖️ Agent 5: Eindcontrole & Risico-Audit")
         st.warning(
             f"**Belangrijkste Risico's om nu scherp te bewaken:**\n"
-            f"1. **Politiek & Juridisch Risico (Hoog):** Nieuwe golven van arrestaties in het fondsschandaal of politieke spanningen kunnen op korte termijn voor plotselinge winstnemingen op Borsa İstanbul zorgen.\n"
-            f"2. **Valuta- & Renterisico (Gemiddeld-Hoog):** USD/TRY staat op **₺{usd_p:,.2f}**. Bedrijven met hoge schulden in vreemde valuta zonder exportinkomsten lopen extra risico.\n"
-            f"3. **Wereldwijde Marktvolatiliteit (VIX op {vix_p:,.2f}):** Houd de olieprijs (**${brent_p:,.2f}**) en uitspraken vanuit de VS/Fed scherp in de gaten."
+            f"1. **Toezicht- & Schandaalrisico (`{scandal_count}` meldingen):** Aanhoudende SPK-onderzoeken en handelsverboden zorgen voor plotselinge koersschokken in kleinere nevenfondsen.\n"
+            f"2. **Valuta- & Renterisico:** USD/TRY noteert **₺{usd_p:,.2f}**. Bedrijven met veel kasgeld en exportinkomsten zijn veel weerbaarder dan bedrijven met zware leningen in Lira.\n"
+            f"3. **Geopolitieke Volatiliteit (VIX op {vix_p:,.2f}):** Houd de olieprijs (**${brent_p:,.2f}**) en de Amerikaanse en Turkse rentebesluiten in Agent 6 scherp in de gaten."
         )
 
     # ==========================================================================
-    # TAB 6: AGENT 6 — KOMENDE 30-DAGEN MACRO-AGENDA (UITSLUITEND TOEKOMST, OPLOPEND)
+    # TAB 6: AGENT 6 — KOMENDE 30-DAGEN MACRO-AGENDA (TOEKOMST, OPLOPEND)
     # ==========================================================================
     with tab6:
-        st.markdown("### 📅 Agent 6: Toekomstige 30-Dagen Macro-Agenda (Oplopend Gesorteerd)")
+        st.markdown("### 📅 Agent 6: Toekomstige 30-Dagen Macro-Agenda (Eerstvolgende Bovenaan)")
         st.markdown(
-            "Hieronder staan **uitsluitend de aankomende gebeurtenissen van de komende 30 dagen** "
-            "(verleden is volledig weggefilterd), **chronologisch oplopend op datum**, "
-            "met per agendapunt een samenvatting in normale taal en wat dit betekent voor de beurs."
+            "Hieronder staan **uitsluitend de aankomende gebeurtenissen van de komende 30 dagen**, "
+            "**oplopend gesorteerd op datum** (wat het eerst plaatsvindt staat bovenaan), inclusief uitleg in normale taal."
         )
 
         if upcoming_agenda:
             for idx, ev in enumerate(upcoming_agenda, 1):
+                days_left = (ev["date"] - datetime.now(timezone.utc).date()).days
+                days_label = "Vandaag!" if days_left == 0 else f"Over {days_left} dagen"
                 st.markdown(
                     f"""<div class="agenda-card">
-                        <strong>#{idx} | 📅 Datum: {ev['time_str']} (Over {(ev['date'] - datetime.now(timezone.utc).date()).days} dagen)</strong><br>
-                        <span style="font-size: 17px; font-weight: bold; color: #14532d;">{ev['title']}</span>
-                        <hr style="margin: 8px 0; border: 0; border-top: 1px solid #86efac;">
+                        <strong>#{idx} | 📅 Datum: {ev['time_str']} ({days_label})</strong><br>
+                        <span style="font-size: 17px; font-weight: bold; color: #1e3a8a;">{ev['title']}</span>
+                        <hr style="margin: 8px 0; border: 0; border-top: 1px solid #93c5fd;">
                         <p style="margin-bottom: 6px;">🗣️ {ev['jip_summary']}</p>
                         <p style="margin-bottom: 8px;">📊 {ev['econ_impact']}</p>
-                        🔗 <a href="{ev['link']}" target="_blank" style="font-weight: bold; color: #15803d;">Klik hier voor de officiële bron & kalenderpagina</a>
+                        🔗 <a href="{ev['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8;">Klik hier voor de officiële bron & kalenderpagina</a>
                     </div>""",
                     unsafe_allow_html=True
                 )
