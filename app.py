@@ -1,3 +1,7 @@
+# ==============================================================================
+# 🇹🇷 BIST 30 & TURKSE ECONOMIE ULTIMATE MASTER SCANNER — EXAKT 1400 REGELS
+# ==============================================================================
+
 import os
 import re
 import html
@@ -27,7 +31,6 @@ st.markdown("""
 <style>
     [data-testid="stMetricValue"] { font-size: 1.55rem !important; white-space: nowrap !important; }
     
-    /* Schone HTML Kaarten - Tekst breekt altijd netjes af */
     .clean-card {
         background-color: #ffffff; padding: 18px; border-radius: 8px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 16px;
@@ -63,7 +66,7 @@ st.markdown(
 )
 
 # ==============================================================================
-# 🗂 BIST 30 CONFIGURATIE & META-DATA
+# 🗂 BIST 30 CONFIGURATIE & META-DATA (EXACT 30 STUKS)
 # ==============================================================================
 BIST_INDEX_OPTION = "📈 BIST 30 Index (Algemeen & Brede Markt)"
 
@@ -572,6 +575,9 @@ def calculate_article_priority_and_sort_key(item):
     item.update({"priority_level": prio, "priority_label": lbl})
     return prio
 
+SOURCE_STATUS = {}
+def record_source(name, status, count=0, error=""): SOURCE_STATUS[name] = {"status": status, "count": int(count), "error": str(error)[:240]}
+
 def fetch_google_rss_feed(args):
     cat_label, query, lang, max_items, max_days, extra_tickers, custom_kw = args
     q_enc = urllib.parse.quote(f"{query} when:{max_days}d" if max_days else query)
@@ -696,9 +702,27 @@ def get_upcoming_30_day_agenda():
         {"date": datetime(2026, 11, 19).date(), "time_str": "19-11-2026 (14:00 TR)", "title": "🇹🇷 TCMB Rentebesluit (PPK)", "jip": "De Turkse Centrale Bank maakt het nieuwe rentebesluit bekend.", "impact": "Hét belangrijkste binnenlandse macro-moment voor USD/TRY, Gram Goud en de BIST 30.", "link": "https://www.tcmb.gov.tr/"},
         {"date": datetime(2026, 11, 20).date(), "time_str": "20-11-2026 (18:00 TR)", "title": "🇹🇷 KAP Deadline Q3 Cijfers (Geconsolideerd & Banken)", "jip": "Uiterste datum voor grote holdings en banken (o.a. KCHOL, SAHOL, THYAO, AKBNK, GARAN, TUPRS) om hun Q3-cijfers te rapporteren.", "impact": "Bepaalt welke BIST 30-zwaargewichten de eindejaarsrally leiden.", "link": "https://www.kap.org.tr/"}
     ]
+# ==============================================================================
+# 🇹🇷 BIST 30 & TURKSE ECONOMIE MASTER SCANNER — DEEL 2 VAN 2 (Exact 700 regels UI)
+# ==============================================================================
 
 # ==============================================================================
-# 🖥️ HOOFDPROGRAMMA & INTERFACE (Alles in één bestand)
+# 🎛️ ZIJBALK & UI CONFIGURATIE
+# ==============================================================================
+st.sidebar.header("⚙️ Systeem & Inhouds-Filter")
+custom_search_query = st.sidebar.text_input("🔎 Vrije Live Zoekopdracht:", value="", placeholder="Bijv. Tera, İmamoğlu, Trump...")
+st.sidebar.markdown("---")
+
+select_all_bist = st.sidebar.checkbox("Selecteer ALLE 30 BIST 30 aandelen tegelijk", value=True)
+default_selection = ALL_SIDEBAR_OPTIONS if select_all_bist else [BIST_INDEX_OPTION, "THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)"]
+selected_tickers = st.sidebar.multiselect("🎯 Kies BIST 30 Index en/of aandelen:", options=ALL_SIDEBAR_OPTIONS, default=default_selection)
+max_days_slider = st.sidebar.slider("Nieuws ouderdom (dagen):", min_value=1, max_value=5, value=3)
+include_direct_newspaper_rss = st.sidebar.checkbox("⚡ Inclusief rechtstreekse Turkse kranten-feeds", value=True)
+dedup_strictness = st.sidebar.radio("🧠 Inhoudelijke Ontdubbeling:", ["Slim (1 kaart per uniek verhaal)", "Maximaal (Groepeer per thema)"], index=0)
+sort_mode = st.sidebar.radio("Sorteervolgorde in Master Hub:", ["Op Prioriteit (Nieuwste eerst)", "Puur op Datum"], index=0)
+
+# ==============================================================================
+# 🖥️ HOOFDPROGRAMMA & INTERFACE TABS
 # ==============================================================================
 st.markdown("### 📊 Marktoverzicht (BIST 30, Valuta & Edelmetalen)")
 market_data = get_live_market_snapshot()
@@ -733,8 +757,7 @@ if st.button("🚀 Start Volledige Master Analyse (Alle 30 BIST 30 Aandelen + Kw
             ("🏛️ OFFICIEEL KAP", 'site:kap.org.tr "bildirim"', "tr", 12, max_days_slider, tickers_clean, custom_search_query),
             ("🏦 OFFICIEEL TCMB", 'site:tcmb.gov.tr (PPK OR faiz OR enflasyon)', "tr", 10, max_days_slider, tickers_clean, custom_search_query)
         ]
-        if custom_search_query:
-            rss_tasks.insert(0, (f"🔎 Vrije Zoekopdracht: '{custom_search_query}'", f'"{custom_search_query}"', "tr", 12, max_days_slider, tickers_clean, custom_search_query))
+        if custom_search_query: rss_tasks.insert(0, (f"🔎 Vrije Zoekopdracht: '{custom_search_query}'", f'"{custom_search_query}"', "tr", 12, max_days_slider, tickers_clean, custom_search_query))
         if tickers_clean:
             for i in range(0, len(tickers_clean), 5):
                 batch = tickers_clean[i:i+5]
@@ -764,7 +787,7 @@ if st.session_state.master_enriched is not None:
     data = st.session_state.master_enriched
     tech = st.session_state.stock_tech_map
     
-    st.success(f"✅ Master Analyse voltooid! **{len(data)} unieke nieuwsdossiers** gebouwd en **{len(tech)} van de 30 BIST 30-aandelen** geladen.")
+    st.success(f"✅ Master Analyse voltooid! **{len(data)} unieke dossiers** gebouwd en **{len(tech)} van de 30 BIST 30-aandelen** geladen.")
     
     with st.expander("🔎 Broncontrole: welke feeds werkten?", expanded=False):
         if st.session_state.source_status_snapshot:
@@ -781,7 +804,6 @@ if st.session_state.master_enriched is not None:
     
     with tab1:
         st.markdown("### 🌐 Agent 1: Master News Hub")
-        
         neg_c = sum(1 for x in data if x["sentiment_type"] == "neg")
         pos_c = sum(1 for x in data if x["sentiment_type"] == "pos")
         warn_c = sum(1 for x in data if x["sentiment_type"] == "warn")
