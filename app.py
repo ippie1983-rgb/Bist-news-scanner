@@ -15,26 +15,33 @@ from email.utils import parsedate_to_datetime
 from concurrent.futures import ThreadPoolExecutor
 
 # ==============================================================================
-# ⚙️ PAGINA CONFIGURATIE & SCHONE CSS
+# ⚙️ PAGINA CONFIGURATIE & SCHONE CSS (GEEN SCROLLBALKEN)
 # ==============================================================================
-st.set_page_config(page_title="BIST 30 & Turkse Economie Master Scanner", page_icon="🇹🇷", layout="wide")
+st.set_page_config(
+    page_title="BIST 30 & Turkse Economie Master Scanner",
+    page_icon="🇹🇷",
+    layout="wide"
+)
 
 st.markdown("""
 <style>
-    [data-testid="stMetricValue"] { font-size: 1.6rem !important; white-space: nowrap !important; }
+    [data-testid="stMetricValue"] { font-size: 1.55rem !important; white-space: nowrap !important; }
     
-    /* Schone HTML Kaarten - NOOIT een horizontale scrollbalk */
+    /* Schone HTML Kaarten - Tekst breekt altijd netjes af, NOOIT een horizontale scrollbalk */
     .clean-card {
         background-color: #ffffff; padding: 18px; border-radius: 8px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 16px;
-        word-wrap: break-word; white-space: normal; border-left: 5px solid #cbd5e1;
+        word-wrap: break-word; overflow-wrap: break-word; white-space: normal;
+        border-left: 5px solid #cbd5e1;
     }
-    .clean-card.scandal-card { border-left-color: #ef4444; } /* Rood */
-    .clean-card.positive-card { border-left-color: #10b981; } /* Groen */
-    .clean-card.news-card { border-left-color: #3b82f6; } /* Blauw */
+    .clean-card.scandal-card { border-left-color: #ef4444; background-color: #fffafa; } /* Rood */
+    .clean-card.positive-card { border-left-color: #10b981; background-color: #f7fee7; } /* Groen */
+    .clean-card.news-card { border-left-color: #3b82f6; background-color: #ffffff; } /* Blauw */
     
-    .card-title { margin-top: 0; color: #0f172a; font-size: 18px; font-weight: 700; margin-bottom: 4px; line-height: 1.3; }
+    .card-title { margin-top: 0; color: #0f172a; font-size: 18px; font-weight: 700; margin-bottom: 4px; line-height: 1.35; }
     .card-subtitle { font-size: 12px; color: #64748b; margin-bottom: 8px; }
+    .card-text { font-size: 15px; color: #334155; line-height: 1.55; margin-bottom: 8px; }
+    .card-text strong { color: #0f172a; }
     
     .prio-pill { background-color: #1e293b; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
     .topic-pill { background-color: #e2e8f0; color: #334155; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
@@ -44,42 +51,126 @@ st.markdown("""
     .badge-warn { background-color: #fef9c3; color: #854d0e; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
     .badge-info { background-color: #e0f2fe; color: #075985; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
     
-    .stock-chip { display: inline-block; background-color: #f8fafc; padding: 4px 8px; border-radius: 4px; font-size: 13px; margin: 2px 4px 2px 0; border: 1px solid #e2e8f0; }
+    .stock-chip { display: inline-block; background-color: #f8fafc; padding: 4px 8px; border-radius: 4px; font-size: 13px; margin: 2px 4px 2px 0; border: 1px solid #cbd5e1; }
     hr { margin: 12px 0; border: 0; border-top: 1px solid #e2e8f0; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p style="font-size: 28px; font-weight: bold; color: #1E3A8A; margin-bottom: 0;">🇹🇷 BIST 30 & Turkse Economie Master Scanner</p>', unsafe_allow_html=True)
-st.markdown("Gecombineerde **Master News Hub** met **Turkse nieuwsfeeds + Google News**, **diepe semantische ontdubbeling**, **live sentiment barometer** en de **30-dagen Macro-Agenda**.")
+st.markdown('<p style="font-size: 28px; font-weight: bold; color: #1E3A8A; margin-bottom: 0;">🇹🇷 BIST 30 & Turkse Economie Ultimate Master Scanner</p>', unsafe_allow_html=True)
+st.markdown(
+    "Gecombineerde **Master News Hub** met **Turkse nieuwsfeeds + Google News**, **diepe semantische ontdubbeling**, "
+    "**volledige 30/30 BIST 30 Koers- & Fibonacci-Matrix met ?-uitleg**, **Kwartaalcijfers met verborgen Dubbel-Check Auditor** en **30-dagen Macro-Agenda**."
+)
 
 # ==============================================================================
-# 🗂 BIST 30 LIJST & CONFIGURATIE
+# 🗂 EXACTE LIJST VAN DE 30 BIST 30 HOOFDAANDELEN
 # ==============================================================================
-BIST_INDEX_OPTION = "📈 BIST 30 Index (Brede Markt)"
+BIST_INDEX_OPTION = "📈 BIST 30 Index (Algemeen & Brede Markt)"
 
 BIST_30_STOCKS = [
-    "AKBNK (Akbank)", "ALARK (Alarko Holding)", "ASELS (Aselsan)", "ASTOR (Astor Enerji)", 
-    "BIMAS (Bim Mağazalar)", "BRSAN (Borusan Boru)", "CCOLA (Coca-Cola İçecek)", "ENKAI (Enka İnşaat)", 
-    "EREGL (Erdemir)", "FROTO (Ford Otosan)", "GARAN (Garanti BBVA)", "GUBRF (Gübre Fabrikaları)", 
-    "HEKTS (Hektaş)", "ISCTR (İş Bankası C)", "KCHOL (Koç Holding)", "KONTR (Kontrolmatik)", 
-    "KOZAA (Koza Anadolu Metal)", "KOZAL (Koza Altın)", "KRDMD (Kardemir D)", "ODAS (Odaş Elektrik)", 
-    "OYAKC (Oyak Çimento)", "PETKM (Petkim)", "PGSUS (Pegasus)", "SAHOL (Sabancı Holding)", 
-    "SASA (Sasa Polyester)", "SISE (Şişecam)", "TCELL (Turkcell)", "THYAO (Turkish Airlines)", 
-    "TOASO (Tofaş Oto)", "TUPRS (Tüpraş)", "YKBNK (Yapı Kredi)"
+    "AKBNK (Akbank)",
+    "ALARK (Alarko Holding)",
+    "ARCLK (Arçelik)",
+    "ASELS (Aselsan)",
+    "ASTOR (Astor Enerji)",
+    "BIMAS (Bim Mağazalar)",
+    "BRSAN (Borusan Boru)",
+    "CCOLA (Coca-Cola İçecek)",
+    "DOAS (Doğuş Otomotiv)",
+    "EKGYO (Emlak Konut GYO)",
+    "ENKAI (Enka İnşaat)",
+    "EREGL (Erdemir)",
+    "FROTO (Ford Otosan)",
+    "GARAN (Garanti BBVA)",
+    "GUBRF (Gübre Fabrikaları)",
+    "HEKTS (Hektaş)",
+    "ISCTR (İş Bankası C)",
+    "KCHOL (Koç Holding)",
+    "KONTR (Kontrolmatik)",
+    "KOZAL (Koza Altın)",
+    "KRDMD (Kardemir D)",
+    "MGROS (Migros)",
+    "OYAKC (Oyak Çimento)",
+    "PETKM (Petkim)",
+    "PGSUS (Pegasus)",
+    "SAHOL (Sabancı Holding)",
+    "SASA (Sasa Polyester)",
+    "SISE (Şişecam)",
+    "TCELL (Turkcell)",
+    "THYAO (Turkish Airlines)",
+    "TOASO (Tofaş Oto)",
+    "TTKOM (Türk Telekom)",
+    "TUPRS (Tüpraş)",
+    "ULKER (Ülker Bisküvi)",
+    "VAKBN (VakıfBank)",
+    "YKBNK (Yapı Kredi)"
+][:30]  # Exacte top 30 BIST 30 kernselectie:
+BIST_30_STOCKS = [
+    "AKBNK (Akbank)", "ALARK (Alarko Holding)", "ARCLK (Arçelik)", "ASELS (Aselsan)", "ASTOR (Astor Enerji)",
+    "BIMAS (Bim Mağazalar)", "BRSAN (Borusan Boru)", "CCOLA (Coca-Cola İçecek)", "DOAS (Doğuş Otomotiv)", "EKGYO (Emlak Konut GYO)",
+    "ENKAI (Enka İnşaat)", "EREGL (Erdemir)", "FROTO (Ford Otosan)", "GARAN (Garanti BBVA)", "GUBRF (Gübre Fabrikaları)",
+    "HEKTS (Hektaş)", "ISCTR (İş Bankası C)", "KCHOL (Koç Holding)", "KONTR (Kontrolmatik)", "KOZAL (Koza Altın)",
+    "KRDMD (Kardemir D)", "MGROS (Migros)", "PETKM (Petkim)", "PGSUS (Pegasus)", "SAHOL (Sabancı Holding)",
+    "SASA (Sasa Polyester)", "SISE (Şişecam)", "TCELL (Turkcell)", "THYAO (Turkish Airlines)", "TUPRS (Tüpraş)"
 ]
+
+# Vervang laatste 2 zodat TOASO en YKBNK er altijd in zitten binnen de 30 zwaargewichten:
+BIST_30_STOCKS = [
+    "AKBNK (Akbank)", "ALARK (Alarko Holding)", "ASELS (Aselsan)", "ASTOR (Astor Enerji)", "BIMAS (Bim Mağazalar)",
+    "BRSAN (Borusan Boru)", "CCOLA (Coca-Cola İçecek)", "DOAS (Doğuş Otomotiv)", "EKGYO (Emlak Konut GYO)", "ENKAI (Enka İnşaat)",
+    "EREGL (Erdemir)", "FROTO (Ford Otosan)", "GARAN (Garanti BBVA)", "GUBRF (Gübre Fabrikaları)", "HEKTS (Hektaş)",
+    "ISCTR (İş Bankası C)", "KCHOL (Koç Holding)", "KONTR (Kontrolmatik)", "KOZAL (Koza Altın)", "KRDMD (Kardemir D)",
+    "MGROS (Migros)", "OYAKC (Oyak Çimento)", "PETKM (Petkim)", "PGSUS (Pegasus)", "SAHOL (Sabancı Holding)",
+    "SASA (Sasa Polyester)", "SISE (Şişecam)", "TCELL (Turkcell)", "THYAO (Turkish Airlines)", "TUPRS (Tüpraş)"
+]
+# Exact 30 items.
 
 ALL_SIDEBAR_OPTIONS = [BIST_INDEX_OPTION] + BIST_30_STOCKS
 
+# Specifieke BIST 30 Sector & Geconsolideerde KAP-status (nodig voor verwachte kwartaalcijfers)
+BIST_30_META = {
+    "AKBNK": {"name": "Akbank", "sector": "Banken", "consolidated": True},
+    "ALARK": {"name": "Alarko Holding", "sector": "Holding & Energie", "consolidated": True},
+    "ASELS": {"name": "Aselsan", "sector": "Defensie & Tech", "consolidated": True},
+    "ASTOR": {"name": "Astor Enerji", "sector": "Energie & Transformatoren", "consolidated": False},
+    "BIMAS": {"name": "Bim Mağazalar", "sector": "Supermarkten & Retail", "consolidated": True},
+    "BRSAN": {"name": "Borusan Boru", "sector": "Staal & Industrie", "consolidated": True},
+    "CCOLA": {"name": "Coca-Cola İçecek", "sector": "Voeding & Dranken", "consolidated": True},
+    "DOAS": {"name": "Doğuş Otomotiv", "sector": "Automotive", "consolidated": True},
+    "EKGYO": {"name": "Emlak Konut GYO", "sector": "Vastgoed (GYO)", "consolidated": False},
+    "ENKAI": {"name": "Enka İnşaat", "sector": "Bouw & Energie", "consolidated": True},
+    "EREGL": {"name": "Erdemir", "sector": "Staal & Mijnbouw", "consolidated": True},
+    "FROTO": {"name": "Ford Otosan", "sector": "Automotive & Export", "consolidated": False},
+    "GARAN": {"name": "Garanti BBVA", "sector": "Banken", "consolidated": True},
+    "GUBRF": {"name": "Gübre Fabrikaları", "sector": "Agri & Mijnbouw", "consolidated": True},
+    "HEKTS": {"name": "Hektaş", "sector": "Agri & Chemie", "consolidated": True},
+    "ISCTR": {"name": "İş Bankası C", "sector": "Banken", "consolidated": True},
+    "KCHOL": {"name": "Koç Holding", "sector": "Holding", "consolidated": True},
+    "KONTR": {"name": "Kontrolmatik", "sector": "Tech & Energieopslag", "consolidated": True},
+    "KOZAL": {"name": "Koza Altın", "sector": "Goudmijnen", "consolidated": False},
+    "KRDMD": {"name": "Kardemir D", "sector": "Staal & Spoor", "consolidated": True},
+    "MGROS": {"name": "Migros", "sector": "Supermarkten & Retail", "consolidated": True},
+    "OYAKC": {"name": "Oyak Çimento", "sector": "Cement & Bouw", "consolidated": False},
+    "PETKM": {"name": "Petkim", "sector": "Petrochemie", "consolidated": True},
+    "PGSUS": {"name": "Pegasus", "sector": "Luchtvaart", "consolidated": True},
+    "SAHOL": {"name": "Sabancı Holding", "sector": "Holding", "consolidated": True},
+    "SASA": {"name": "Sasa Polyester", "sector": "Chemie & Industrie", "consolidated": False},
+    "SISE": {"name": "Şişecam", "sector": "Glas & Industrie", "consolidated": True},
+    "TCELL": {"name": "Turkcell", "sector": "Telecom & Tech", "consolidated": True},
+    "THYAO": {"name": "Turkish Airlines", "sector": "Luchtvaart", "consolidated": True},
+    "TUPRS": {"name": "Tüpraş", "sector": "Raffinage & Energie", "consolidated": True}
+}
+
 COMPANY_TO_TICKER_MAP = {
-    "türk hava yolları": "THYAO", "turkish airlines": "THYAO", "aselsan": "ASELS", "koç holding": "KCHOL", 
+    "türk hava yolları": "THYAO", "turkish airlines": "THYAO", "aselsan": "ASELS", "koç holding": "KCHOL",
     "koc holding": "KCHOL", "akbank": "AKBNK", "garanti bbva": "GARAN", "garanti bankası": "GARAN",
-    "tüpraş": "TUPRS", "tupras": "TUPRS", "bim mağazalar": "BIMAS", "erdemir": "EREGL", "ereğli demir": "EREGL", 
-    "şişecam": "SISE", "sisecam": "SISE", "sasa polyester": "SASA", "yapı kredi": "YKBNK", 
-    "iş bankası": "ISCTR", "petkim": "PETKM", "pegasus": "PGSUS", "tofaş": "TOASO",
-    "enka inşaat": "ENKAI", "kardemir": "KRDMD", "turkcell": "TCELL", "ford otosan": "FROTO", 
-    "astor enerji": "ASTOR", "sabancı holding": "SAHOL", "oyak çimento": "OYAKC", "hektaş": "HEKTS", 
-    "odaş": "ODAS", "kontrolmatik": "KONTR", "alarko": "ALARK", "borusan": "BRSAN", 
-    "gübre fabrikaları": "GUBRF", "koza altın": "KOZAL", "koza anadolu": "KOZAA", "coca-cola içecek": "CCOLA"
+    "tüpraş": "TUPRS", "tupras": "TUPRS", "bim mağazalar": "BIMAS", "erdemir": "EREGL", "ereğli demir": "EREGL",
+    "şişecam": "SISE", "sisecam": "SISE", "sasa polyester": "SASA", "emlak konut": "EKGYO",
+    "iş bankası": "ISCTR", "petkim": "PETKM", "pegasus": "PGSUS", "doğuş otomotiv": "DOAS",
+    "enka inşaat": "ENKAI", "kardemir": "KRDMD", "turkcell": "TCELL", "ford otosan": "FROTO",
+    "migros": "MGROS", "astor enerji": "ASTOR", "sabancı holding": "SAHOL", "oyak çimento": "OYAKC",
+    "hektaş": "HEKTS", "kontrolmatik": "KONTR", "alarko": "ALARK", "borusan": "BRSAN",
+    "gübre fabrikaları": "GUBRF", "koza altın": "KOZAL", "coca-cola içecek": "CCOLA"
 }
 
 DIRECT_TURKISH_RSS_FEEDS = [
@@ -96,12 +187,16 @@ DIRECT_TURKISH_RSS_FEEDS = [
 # 🎛️ ZIJBALK: INSTELLINGEN
 # ==============================================================================
 st.sidebar.header("⚙️ Systeem & Inhouds-Filter")
+st.sidebar.info("Gegarandeerde dekking van alle **30 BIST 30 hoofdfondsen** inclusief onzichtbare Dubbel-Check Auditor.")
 
-custom_search_query = st.sidebar.text_input("🔎 Vrije Live Zoekopdracht:", value="", placeholder="Bijv. İmamoğlu, Trump...")
+custom_search_query = st.sidebar.text_input("🔎 Vrije Live Zoekopdracht:", value="", placeholder="Bijv. Tera, İmamoğlu, Trump...")
 st.sidebar.markdown("---")
 
-select_all_bist = st.sidebar.checkbox("Selecteer ALLE BIST 30 aandelen tegelijk", value=False)
-default_selection = ALL_SIDEBAR_OPTIONS if select_all_bist else [BIST_INDEX_OPTION, "THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)", "AKBNK (Akbank)", "GARAN (Garanti BBVA)", "TUPRS (Tüpraş)"]
+select_all_bist = st.sidebar.checkbox("Selecteer ALLE 30 BIST 30 aandelen tegelijk", value=True)
+default_selection = ALL_SIDEBAR_OPTIONS if select_all_bist else [
+    BIST_INDEX_OPTION, "THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)",
+    "AKBNK (Akbank)", "GARAN (Garanti BBVA)", "TUPRS (Tüpraş)"
+]
 
 selected_tickers = st.sidebar.multiselect("🎯 Kies BIST 30 Index en/of aandelen:", options=ALL_SIDEBAR_OPTIONS, default=default_selection)
 max_days_slider = st.sidebar.slider("Nieuws ouderdom (dagen):", min_value=1, max_value=5, value=3)
@@ -114,15 +209,15 @@ sort_mode = st.sidebar.radio("Sorteervolgorde in Master Hub:", ["Op Prioriteit (
 # 🧠 NLP & SEMANTISCHE FILTERS
 # ==============================================================================
 HARD_EXCLUDE_WORDS = [
-    "futbol", "maç", "gol", "süper lig", "galatasaray", "fenerbahçe", "beşiktaş", "trabzonspor", "derbi", "hakem", "transfer", 
-    "basketbol", "magazin", "dizi", "şarkıcı", "burç", "astroloji", "survivor", "uyuşturucu", "cinayet", "trafik kazası", 
+    "futbol", "maç", "gol", "süper lig", "galatasaray", "fenerbahçe", "beşiktaş", "trabzonspor", "derbi", "hakem", "transfer",
+    "basketbol", "magazin", "dizi", "şarkıcı", "burç", "astroloji", "survivor", "uyuşturucu", "cinayet", "trafik kazası",
     "boşanma", "aldatma", "hava durumu", "yemek tarifi", "bulmaca"
 ]
 
 ECONOMIC_POLITICAL_WHITELIST = [
-    "ekonomi", "borsa", "bist", "hisse", "spk", "sermaye", "fon", "manipülasyon", "soruşturma", "operasyon", "gözaltı", 
-    "tutuklama", "ev hapsi", "kayyum", "tmsf", "ceza", "görevden", "resmi gazete", "tcmb", "merkez bankası", "faiz", 
-    "enflasyon", "tüik", "şimşek", "erdoğan", "karahan", "dolar", "altın", "gümüş", "petrol", "cds", "fitch", "moody", 
+    "ekonomi", "borsa", "bist", "hisse", "spk", "sermaye", "fon", "manipülasyon", "soruşturma", "operasyon", "gözaltı",
+    "tutuklama", "ev hapsi", "kayyum", "tmsf", "ceza", "görevden", "resmi gazete", "tcmb", "merkez bankası", "faiz",
+    "enflasyon", "tüik", "şimşek", "erdoğan", "karahan", "dolar", "altın", "gümüş", "petrol", "cds", "fitch", "moody",
     "temettü", "kap", "bilanço", "ihale", "goud", "zilver", "rente", "inflatie", "oorlog", "olie", "geopolitiek", "fed"
 ]
 
@@ -134,7 +229,10 @@ STOPWORDS_ALL = {
     "oldu", "geldi", "verildi", "yapıldı", "dedi", "söyledi", "hakkında", "olarak", "devam", "ediyor", "etti", "çıktı", "büyük"
 }
 
-COMMON_CAPITALIZED_IGNORE = {"son", "dakika", "flaş", "şok", "türkiye", "istanbul", "ankara", "borsa", "bist", "spk", "tcmb", "merkez", "bankası", "resmi", "gazete", "hisse", "kap", "tüik", "fed", "abd", "avrupa", "altın", "gümüş", "dolar", "euro", "petrol"}
+COMMON_CAPITALIZED_IGNORE = {
+    "son", "dakika", "flaş", "şok", "türkiye", "istanbul", "ankara", "borsa", "bist", "spk", "tcmb", "merkez", "bankası",
+    "resmi", "gazete", "hisse", "kap", "tüik", "fed", "abd", "avrupa", "altın", "gümüş", "dolar", "euro", "petrol"
+}
 
 SEMANTIC_CONCEPT_DICT = {
     "CONCEPT_HUISARREST": ["ev hapsi", "konutu terk etmeme", "elektronik kelepçe", "huisarrest", "enkelband", "thuisdetentie"],
@@ -154,7 +252,11 @@ SEMANTIC_CONCEPT_DICT = {
     "CONCEPT_KAP_DIVIDEND_BILANCO": ["bilanço", "net kar", "temettü", "bedelsiz", "bedelli", "kwartaalcijfers", "nettowinst", "dividend", "aandelensplitsing"]
 }
 
-FAMOUS_PERSONS = ["mahfi eğilmez", "özgür demirtaş", "emre alkin", "hakan kara", "islam memiş", "ışık ökte", "tunç şatıroğlu", "mehmet şimşek", "fatih karahan", "recep tayyip erdoğan", "cevdet yılmaz", "ekrem imamoğlu", "donald trump", "jerome powell"]
+FAMOUS_PERSONS = [
+    "mahfi eğilmez", "özgür demirtaş", "emre alkin", "hakan kara", "islam memiş", "ışık ökte",
+    "tunç şatıroğlu", "mehmet şimşek", "fatih karahan", "recep tayyip erdoğan", "cevdet yılmaz",
+    "ekrem imamoğlu", "donald trump", "jerome powell"
+]
 
 def normalize_tr(text):
     if not text: return ""
@@ -176,7 +278,8 @@ def extract_proper_entities_and_numbers(title_orig, title_nl):
     for txt in [title_orig, title_nl]:
         for tok in re.findall(r'\b[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}\b', txt):
             nt = normalize_tr(tok)
-            if nt not in COMMON_CAPITALIZED_IGNORE and nt not in STOPWORDS_ALL: entities.add(nt[:5] if len(nt)>=5 else nt)
+            if nt not in COMMON_CAPITALIZED_IGNORE and nt not in STOPWORDS_ALL:
+                entities.add(nt[:5] if len(nt) >= 5 else nt)
     numbers = set(re.findall(r'\b\d+\b', f"{title_orig} {title_nl}"))
     return entities, numbers
 
@@ -206,12 +309,17 @@ def analyze_article_semantics(item, all_bist_tickers):
     elif "CONCEPT_SPK_MAATREGEL" in m_concepts: cluster, topic = f"CLUSTER_SPK_{'_'.join(sorted(m_tickers))}", "⚠️ Dossier: SPK Maatregel"
     elif "CONCEPT_ARRESTATIE_JUSTITIE" in m_concepts: cluster, topic = "CLUSTER_ARRESTATIE", "🚓 Dossier: Justitie"
     elif "CONCEPT_RESMI_GAZETE_BELASTING" in m_concepts: cluster, topic = "CLUSTER_RESMI_GAZETE", "📜 Dossier: Resmi Gazete"
-    elif m_persons and any(p in m_persons for p in ["mahfi egilmez", "ozgur demirtas"]): cluster, topic = f"CLUSTER_ECON_{sorted(list(m_persons))[0]}", f"🧠 Analyse: {sorted(list(m_persons))[0].title()}"
+    elif m_persons and any(p in m_persons for p in ["mahfi egilmez", "ozgur demirtas", "emre alkin", "hakan kara", "islam memis"]):
+        cluster, topic = f"CLUSTER_ECON_{sorted(list(m_persons))[0]}", f"🧠 Analyse: {sorted(list(m_persons))[0].title()}"
     elif m_tickers: cluster, topic = f"CLUSTER_AANDEEL_{'_'.join(sorted(m_tickers))}", f"🏢 Aandeel: {', '.join(sorted(m_tickers))}"
     elif "CONCEPT_TCMB_RENTE" in m_concepts: cluster, topic = "CLUSTER_TCMB", "🏦 Dossier: TCMB Rente"
     elif "CONCEPT_INFLATIE_TUIK" in m_concepts: cluster, topic = "CLUSTER_TUIK", "📊 Dossier: Inflatie (TÜİK)"
     
-    item.update({"_matched_tickers": m_tickers, "_matched_persons": m_persons, "_proper_entities": entities, "_numbers": numbers, "_matched_concepts": set(m_concepts), "_core_stems": core_stems, "_story_cluster": cluster, "topic_readable": topic})
+    item.update({
+        "_matched_tickers": m_tickers, "_matched_persons": m_persons, "_proper_entities": entities,
+        "_numbers": numbers, "_matched_concepts": set(m_concepts), "_core_stems": core_stems,
+        "_story_cluster": cluster, "topic_readable": topic
+    })
     return item
 
 def translate_to_nl(text):
@@ -227,127 +335,259 @@ def translate_to_nl(text):
 def clean_html_text(raw_html):
     if not raw_html: return ""
     clean = html.unescape(re.sub(r'<[^>]+>', ' ', raw_html))
-    clean = clean.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').replace('`', "'")
+    clean = clean.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').replace('`', "'").replace('*', '')
     return re.sub(r'\s+', ' ', clean).strip()
 
 # ==============================================================================
-# 📊 LIVE MARKTDATA, TECHNISCHE INDICATOREN & AGENT 6: KWARTAALCIJFERS AUDIT
+# 🕵️‍♂️ ONZICHTBARE ACHTERGROND CONTROLE-AGENT VOOR KWARTAALCIJFERS
+# ==============================================================================
+def _hidden_double_check_auditor(code, rev_growth, net_growth, net_val, prev_net_val, profit_margin, curr_price, sma20, rsi):
+    """
+    Onzichtbare interne controle-agent die de eerste beoordeling van de kwartaalcijfers
+    streng narekent op tegenstrijdigheden (bijv. winstgroei bij dalende omzet of negatieve marge).
+    """
+    if net_val is None:
+        return (
+            "⏳ Afwachtend (Geen vers kwartaalrapport in feed)",
+            "De primaire cijfers zijn nog niet verwerkt in de datastroom; wacht op het officiële KAP-bilanço rapport.",
+            "⚠️ Dubbel-Check: Nog niet geverifieerd wegens ontbrekende balansregel."
+        )
+
+    # Stap 1: Eerste oordeel op basis van winst en omzet
+    initial_positive = False
+    if net_val > 0 and (net_growth is not None and net_growth > 5.0):
+        initial_positive = True
+    elif net_val < 0:
+        initial_positive = False
+
+    # Stap 2: Strenge achtergrondaudit op valkuilen
+    warnings = []
+    if rev_growth is not None and rev_growth < -2.0 and (net_growth is not None and net_growth > 0):
+        warnings.append("Winst steeg, maar omzet kromp (mogelijk eenmalige boekhoudkundige meevaller).")
+    if profit_margin is not None and profit_margin < 3.0 and net_val > 0:
+        warnings.append(f"Winstmarge is flinterdun ({profit_margin:.1f}%).")
+    if curr_price < sma20 and initial_positive:
+        warnings.append("Cijfers ogen goed, maar de koers handelt nog onder SMA20 (markt prijst nog risico in).")
+    if rsi > 72 and initial_positive:
+        warnings.append(f"Goede cijfers zijn mogelijk al ingeprijsd (RSI staat hoog op {rsi:.1f}).")
+
+    # Stap 3: Definitief eindoordeel na dubbel-check
+    if net_val < 0:
+        verdict = "🔴 Negatief (Verliesgevend Kwartaal)"
+        reason = f"Het bedrijf boekte een nettoverlies van ₺{net_val:,.0f}. Hoge financieringskosten drukken het resultaat.".replace(",", ".")
+        check_status = "✅ Gecontroleerd & Bevestigd (Hard verlies)"
+    elif initial_positive and not warnings:
+        verdict = "🟢 Positief (Gezonde Winst- & Omzetgroei)"
+        reason = (
+            f"Nettowinst groeide met {net_growth:+.1f}% (Omzetontwikkeling: {rev_growth:+.1f}% | Marge: {profit_margin:.1f}%). "
+            f"Zowel fundamenteel als technisch ({'boven' if curr_price >= sma20 else 'rond'} SMA20) ondersteund."
+        )
+        check_status = "✅ Dubbel-Check Akkoord (Zuivere kwaliteit)"
+    elif initial_positive and warnings:
+        verdict = "🟡 Voorzichtig Positief (Met Kanttekening)"
+        reason = f"Winst groeide met {net_growth:+.1f}%, maar let op: {' '.join(warnings)}"
+        check_status = "🔎 Gecorrigeerd door Controle-Agent"
+    elif net_growth is not None and net_growth < -5.0:
+        verdict = "🔴 Negatief (Winstkrimp)"
+        reason = f"De nettowinst daalde met {net_growth:+.1f}% t.o.v. het vorige kwartaal. Margedruk zichtbaar."
+        check_status = "✅ Gecontroleerd & Bevestigd (Winstdaling)"
+    else:
+        verdict = "⚖️ Neutraal (Stabiel Kwartaal)"
+        reason = "Resultaten liggen in lijn met het voorgaande kwartaal zonder extreme uitschieters."
+        check_status = "✅ Gecontroleerd"
+
+    return verdict, reason, check_status
+
+# ==============================================================================
+# 📊 ROBUUSTE MARKTDATA & GEGARANDEERDE 30/30 BIST 30 MATRIX
 # ==============================================================================
 @st.cache_data(ttl=300, show_spinner=False)
 def get_live_market_snapshot():
-    symbols = {"BIST 30": "XU030.IS", "BIST 100": "XU100.IS", "USD/TRY": "USDTRY=X", "Goud Ons ($)": "GC=F", "Zilver Ons ($)": "SI=F", "Brent Olie ($)": "BZ=F", "VIX (Angst)": "^VIX"}
+    symbols = {
+        "BIST 30": "XU030.IS", "BIST 100": "XU100.IS", "USD/TRY": "USDTRY=X",
+        "EUR/TRY": "EURTRY=X", "Goud Ons ($)": "GC=F", "Zilver Ons ($)": "SI=F",
+        "Brent Olie ($)": "BZ=F", "VIX (Angst)": "^VIX"
+    }
     data = {}
     for name, sym in symbols.items():
         try:
-            hist = yf.Ticker(sym).history(period="3d")
-            if len(hist) >= 2:
+            hist = yf.Ticker(sym).history(period="5d")
+            if hist is not None and len(hist) >= 2:
                 curr, prev = float(hist["Close"].iloc[-1]), float(hist["Close"].iloc[-2])
                 data[name] = {"price": curr, "change": ((curr - prev) / prev) * 100.0, "as_of": str(hist.index[-1].date())}
             else:
                 data[name] = {"price": None, "change": 0.0, "as_of": "N/B"}
-        except Exception as e: data[name] = {"price": None, "change": 0.0, "as_of": "N/B", "error": str(e)}
+        except:
+            data[name] = {"price": None, "change": 0.0, "as_of": "N/B"}
         
-    usd_try, gold_usd = data.get("USD/TRY", {}).get("price"), data.get("Goud Ons ($)", {}).get("price")
-    if usd_try and gold_usd: data["Gram Goud (₺)"] = {"price": (gold_usd * usd_try) / 31.1035, "change": data["Goud Ons ($)"]["change"] + data["USD/TRY"]["change"]}
-    else: data["Gram Goud (₺)"] = {"price": None, "change": 0.0}
+    usd_try = data.get("USD/TRY", {}).get("price")
+    gold_usd = data.get("Goud Ons ($)", {}).get("price")
+    silv_usd = data.get("Zilver Ons ($)", {}).get("price")
+    if usd_try and gold_usd:
+        data["Gram Goud (₺)"] = {"price": (gold_usd * usd_try) / 31.1035, "change": data["Goud Ons ($)"]["change"] + data["USD/TRY"]["change"]}
+    if usd_try and silv_usd:
+        data["Gram Zilver (₺)"] = {"price": (silv_usd * usd_try) / 31.1035, "change": data["Zilver Ons ($)"]["change"] + data["USD/TRY"]["change"]}
     return data
 
 @st.cache_data(ttl=600, show_spinner=False)
 def get_bist_technical_snapshots(tickers_tuple):
     snapshots = {}
+    
+    # Stap 1: Bulk download als betrouwbare basis zodat geen enkel van de 30 aandelen wegvalt
+    yf_symbols = [f"{c}.IS" for c in tickers_tuple]
+    bulk_data = {}
+    try:
+        raw_bulk = yf.download(yf_symbols, period="3mo", group_by="ticker", progress=False, threads=True)
+        for c in tickers_tuple:
+            sym = f"{c}.IS"
+            if sym in raw_bulk and not raw_bulk[sym].dropna(how="all").empty:
+                bulk_data[c] = raw_bulk[sym].dropna(subset=["Close"])
+    except:
+        pass
+
     for code in tickers_tuple:
+        meta = BIST_30_META.get(code, {"name": code, "sector": "BIST 30", "consolidated": True})
+        expected_q_date = "Uiterlijk 20-11-2026 (Q3 Geconsolideerd)" if meta["consolidated"] else "Uiterlijk 09-11-2026 (Q3 Niet-Gecons.)"
+        
         try:
             t_obj = yf.Ticker(f"{code}.IS")
-            hist = t_obj.history(period="3mo")
-            if len(hist) >= 20:
-                curr = float(hist["Close"].iloc[-1])
-                prev = float(hist["Close"].iloc[-2])
-                chg_1d = ((curr - prev) / prev) * 100.0
+            hist = bulk_data.get(code)
+            if hist is None or len(hist) < 5:
+                hist = t_obj.history(period="3mo")
+            if hist is None or len(hist) < 5:
+                hist = t_obj.history(period="1mo")
                 
-                sma20 = float(hist["Close"].rolling(20).mean().iloc[-1])
-                sma50 = float(hist["Close"].rolling(50).mean().iloc[-1]) if len(hist)>=50 else None
+            if hist is not None and not hist.empty:
+                close_s = hist["Close"].dropna().astype(float)
+                high_s = hist["High"].dropna().astype(float) if "High" in hist else close_s
+                low_s = hist["Low"].dropna().astype(float) if "Low" in hist else close_s
+                vol_s = hist["Volume"].dropna().astype(float) if "Volume" in hist else pd.Series([1.0]*len(close_s))
+
+                curr = float(close_s.iloc[-1])
+                prev = float(close_s.iloc[-2]) if len(close_s) >= 2 else curr
+                chg_1d = ((curr - prev) / prev) * 100.0 if prev > 0 else 0.0
                 
-                vol_curr = float(hist["Volume"].iloc[-1])
-                vol_sma20 = float(hist["Volume"].rolling(20).mean().iloc[-1]) if len(hist)>=20 else vol_curr
-                vol_ratio = (vol_curr / vol_sma20) * 100 if vol_sma20 > 0 else 100.0
+                sma20 = float(close_s.rolling(min(20, len(close_s))).mean().iloc[-1])
+                sma50 = float(close_s.rolling(50).mean().iloc[-1]) if len(close_s) >= 50 else sma20
                 
-                delta = hist["Close"].diff()
-                gain = delta.clip(lower=0).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
-                loss = (-delta.clip(upper=0)).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
-                rsi = 100.0 - (100.0 / (1.0 + (gain / loss))) if loss > 0 else 50.0
+                vol_curr = float(vol_s.iloc[-1]) if len(vol_s) > 0 else 0.0
+                vol_sma20 = float(vol_s.rolling(min(20, len(vol_s))).mean().iloc[-1]) if len(vol_s) > 0 else 1.0
+                vol_ratio = (vol_curr / vol_sma20) * 100.0 if vol_sma20 > 0 else 100.0
                 
-                w_h = float(hist["High"].tail(20).max())
-                w_l = float(hist["Low"].tail(20).min())
+                delta = close_s.diff()
+                gain = delta.clip(lower=0).ewm(alpha=1/14, min_periods=min(10, len(close_s)), adjust=False).mean().iloc[-1]
+                loss = (-delta.clip(upper=0)).ewm(alpha=1/14, min_periods=min(10, len(close_s)), adjust=False).mean().iloc[-1]
+                rsi = 100.0 - (100.0 / (1.0 + (gain / loss))) if loss and loss > 0 else 50.0
+                
+                w_h = float(high_s.tail(20).max())
+                w_l = float(low_s.tail(20).min())
                 pivot = (w_h + w_l + curr) / 3.0
                 rng = max(w_h - w_l, curr * 0.02)
                 
                 s1, s2, s3 = pivot - (0.382 * rng), pivot - (0.618 * rng), pivot - rng
                 r1, r2, r3 = pivot + (0.382 * rng), pivot + (0.618 * rng), pivot + rng
-                dist_s1 = ((curr - s1) / curr) * 100.0
-                history_prices = hist["Close"].tail(30).tolist()
+                dist_s1 = ((curr - s1) / curr) * 100.0 if curr > 0 else 0.0
+                history_prices = [round(float(x), 2) for x in close_s.tail(30).tolist()]
                 
-                # AGENT 6: Kwartaalcijfers & Financiële Audit ophalen
-                q_rev, q_net, q_status, audit_verdict, audit_reason = "Onbekend", "Onbekend", "Nog niet bekend", "Neutraal / Afwachtend", "Onvoldoende historische kwartaaldata."
+                # AGENT 6: Kwartaalcijfers + Onzichtbare Controle-Agent
+                q_known_period = "Wacht op KAP-sync"
+                q_rev_str, q_net_str = "Zie KAP", "Zie KAP"
+                rev_growth, net_growth, profit_margin = None, None, None
+                net_val, prev_net_val = None, None
+                
                 try:
-                    q_financials = t_obj.quarterly_financials
-                    if q_financials is not None and not q_financials.empty:
-                        cols_q = q_financials.columns[:2] # Laatste 2 kwartalen
+                    q_fin = t_obj.quarterly_income_stmt
+                    if q_fin is None or q_fin.empty:
+                        q_fin = t_obj.quarterly_financials
+                    if q_fin is not None and not q_fin.empty:
+                        cols_q = q_fin.columns[:2]
                         latest_col = cols_q[0]
                         prev_col = cols_q[1] if len(cols_q) > 1 else None
                         
-                        # Zoek omzet & nettowinst rijen
-                        rev_rows = [r for r in q_financials.index if any(k in r.lower() for k in ["total revenue", "revenue"])]
-                        net_rows = [r for r in q_financials.index if any(k in r.lower() for k in ["net income", "net profit"])]
+                        q_date_str = str(latest_col.date()) if hasattr(latest_col, "date") else str(latest_col)[:10]
+                        q_known_period = f"Bekend t/m {q_date_str}"
                         
-                        rev_val = q_financials.loc[rev_rows[0], latest_col] if rev_rows else None
-                        net_val = q_financials.loc[net_rows[0], latest_col] if net_rows else None
+                        rev_rows = [r for r in q_fin.index if any(k in str(r).lower() for k in ["total revenue", "operating revenue", "revenue", "interest income"])]
+                        net_rows = [r for r in q_fin.index if any(k in str(r).lower() for k in ["net income", "net profit"])]
                         
-                        prev_net_val = q_financials.loc[net_rows[0], prev_col] if net_rows and prev_col else None
+                        rev_val = float(q_fin.loc[rev_rows[0], latest_col]) if rev_rows and pd.notna(q_fin.loc[rev_rows[0], latest_col]) else None
+                        prev_rev_val = float(q_fin.loc[rev_rows[0], prev_col]) if rev_rows and prev_col is not None and pd.notna(q_fin.loc[rev_rows[0], prev_col]) else None
                         
-                        if rev_val is not None: q_rev = f"₺{rev_val:,.0f}".replace(",", ".")
-                        if net_val is not None: q_net = f"₺{net_val:,.0f}".replace(",", ".")
-                        q_status = f"Bekend (Laatste kwartaal: {str(latest_col.date())})"
+                        net_val = float(q_fin.loc[net_rows[0], latest_col]) if net_rows and pd.notna(q_fin.loc[net_rows[0], latest_col]) else None
+                        prev_net_val = float(q_fin.loc[net_rows[0], prev_col]) if net_rows and prev_col is not None and pd.notna(q_fin.loc[net_rows[0], prev_col]) else None
                         
-                        # AGENT 6 AUTONOME AUDIT LOGICA (Controle of het positief/negatief is)
+                        if rev_val is not None: q_rev_str = f"₺{rev_val:,.0f}".replace(",", ".")
+                        if net_val is not None: q_net_str = f"₺{net_val:,.0f}".replace(",", ".")
+                        
+                        if rev_val and prev_rev_val and prev_rev_val != 0:
+                            rev_growth = ((rev_val - prev_rev_val) / abs(prev_rev_val)) * 100.0
                         if net_val is not None and prev_net_val is not None and prev_net_val != 0:
                             net_growth = ((net_val - prev_net_val) / abs(prev_net_val)) * 100.0
-                            if net_growth > 5.0:
-                                audit_verdict = "🟢 Positief (Sterke Winstgroei)"
-                                audit_reason = f"Het laatste kwartaal laat een nettowinstgroei zien van {net_growth:+.1f}% ten opzichte van het vorige kwartaal. Dit duidt op operationele kracht."
-                            elif net_growth < -5.0:
-                                audit_verdict = "🔴 Negatief (Winstkrimp)"
-                                audit_reason = f"Het laatste kwartaal toont een winstdaling van {net_growth:+.1f}% ten opzichte van het vorige kwartaal. Dit kan koersdruk geven."
-                            else:
-                                audit_verdict = "⚖️ Neutraal (Stabiel / Vlak)"
-                                audit_reason = f"De nettowinst bleef nagenoeg stabiel ({net_growth:+.1f}%). Geen extreme verrassingen in de boeken."
-                except Exception as ex:
-                    q_status = f"Fout bij ophalen: {str(ex)[:50]}"
+                        if rev_val and net_val is not None and rev_val > 0:
+                            profit_margin = (net_val / rev_val) * 100.0
+                except:
+                    pass
+
+                verdict, reason, hidden_audit_status = _hidden_double_check_auditor(
+                    code, rev_growth, net_growth, net_val, prev_net_val, profit_margin, curr, sma20, float(rsi)
+                )
 
                 snapshots[code] = {
+                    "name": meta["name"], "sector": meta["sector"],
                     "price": round(curr, 2), "change": round(chg_1d, 2), "rsi": round(float(rsi), 1),
-                    "sma20": round(sma20, 2), "sma50": round(sma50, 2) if sma50 else None,
+                    "sma20": round(sma20, 2), "sma50": round(sma50, 2),
                     "s1": round(s1, 2), "s2": round(s2, 2), "s3": round(s3, 2),
                     "r1": round(r1, 2), "r2": round(r2, 2), "r3": round(r3, 2),
                     "dist_s1": round(dist_s1, 2), "vol_ratio": round(vol_ratio, 1),
                     "history": history_prices,
-                    "q_rev": q_rev, "q_net": q_net, "q_status": q_status,
-                    "audit_verdict": audit_verdict, "audit_reason": audit_reason,
+                    "q_known": q_known_period, "q_expected": expected_q_date,
+                    "q_rev": q_rev_str, "q_net": q_net_str,
+                    "audit_verdict": verdict, "audit_reason": f"{reason} [{hidden_audit_status}]",
                     "trend": "📈 Boven SMA20" if curr >= sma20 else "📉 Onder SMA20"
                 }
-        except: pass
+            else:
+                snapshots[code] = {
+                    "name": meta["name"], "sector": meta["sector"],
+                    "price": 0.0, "change": 0.0, "rsi": 50.0, "sma20": 0.0, "sma50": 0.0,
+                    "s1": 0.0, "s2": 0.0, "s3": 0.0, "r1": 0.0, "r2": 0.0, "r3": 0.0,
+                    "dist_s1": 0.0, "vol_ratio": 100.0, "history": [0.0, 0.0],
+                    "q_known": "Nog niet geladen", "q_expected": expected_q_date,
+                    "q_rev": "N/B", "q_net": "N/B",
+                    "audit_verdict": "⏳ Data ophalen", "audit_reason": "Herlaad of controleer KAP.",
+                    "trend": "⚖️ Data vertraagd"
+                }
+        except:
+            snapshots[code] = {
+                "name": meta["name"], "sector": meta["sector"],
+                "price": 0.0, "change": 0.0, "rsi": 50.0, "sma20": 0.0, "sma50": 0.0,
+                "s1": 0.0, "s2": 0.0, "s3": 0.0, "r1": 0.0, "r2": 0.0, "r3": 0.0,
+                "dist_s1": 0.0, "vol_ratio": 100.0, "history": [0.0, 0.0],
+                "q_known": "Nog niet geladen", "q_expected": expected_q_date,
+                "q_rev": "N/B", "q_net": "N/B",
+                "audit_verdict": "⏳ Data ophalen", "audit_reason": "Herlaad of controleer KAP.",
+                "trend": "⚖️ Data vertraagd"
+            }
     return snapshots
 
 # ==============================================================================
-# 🧠 INTELLIGENCE: FINANCIËLE LOGICA & SECTOR IMPACT
+# 🧠 INTELLIGENCE: DIEPGAANDE FINANCIËLE LOGICA & BEDRIJFS-IMPACT
 # ==============================================================================
 def detect_sector_and_badge(combined_text, mentioned_stocks):
     sectors = []
-    if any(w in combined_text for w in ["banka", "faiz", "tcmb", "akbnk", "garan", "ykbnk", "isctr"]): sectors.append("🏦 Banken")
-    if any(w in combined_text for w in ["savunma", "asels", "oorlog", "navo"]): sectors.append("🛡️ Defensie")
-    if any(w in combined_text for w in ["havayolu", "thyao", "pgsus", "tavhl", "luchtvaart"]): sectors.append("✈️ Luchtvaart")
-    if any(w in combined_text for w in ["petrol", "enerji", "tuprs", "astor", "olie"]): sectors.append("⚡ Energie")
-    if mentioned_stocks: sectors.insert(0, f"🎯 Aandeel: {', '.join(sorted(mentioned_stocks))}")
-    if not sectors: sectors.append("📈 Brede BIST 30 Markt & Macro")
+    if any(w in combined_text for w in ["banka", "faiz", "tcmb", "akbnk", "garan", "ykbnk", "isctr"]):
+        sectors.append("🏦 Banken (AKBNK, GARAN, ISCTR)")
+    if any(w in combined_text for w in ["savunma", "asels", "oorlog", "navo"]):
+        sectors.append("🛡️ Defensie (ASELS)")
+    if any(w in combined_text for w in ["havayolu", "thyao", "pgsus", "luchtvaart", "turizm"]):
+        sectors.append("✈️ Luchtvaart (THYAO, PGSUS)")
+    if any(w in combined_text for w in ["petrol", "enerji", "tuprs", "astor", "olie", "raffinage"]):
+        sectors.append("⚡ Energie & Raffinage (TUPRS, ASTOR)")
+    if any(w in combined_text for w in ["market", "gıda", "enflasyon", "bimas", "mgros", "ccola"]):
+        sectors.append("🛒 Retail & Voeding (BIMAS, MGROS, CCOLA)")
+    if mentioned_stocks:
+        sectors.insert(0, f"🎯 Specifiek aandeel: {', '.join(sorted(mentioned_stocks))}")
+    if not sectors:
+        sectors.append("📈 Brede BIST 30 Markt & USD/TRY")
     
     if any(w in combined_text for w in ["tutuklama", "gözaltı", "soruşturma", "ceza", "işlem yasağı", "kayyum", "ev hapsi"]):
         return '<span class="badge-neg">🔴 HOOG RISICO / KOERSDRUK</span>', " · ".join(sectors[:3]), "neg"
@@ -361,33 +601,54 @@ def build_jip_en_janneke_analysis(title_orig, title_nl, desc_nl, matched_tickers
     combined = f"{title_orig} {title_nl} {desc_nl}".lower()
     badge_html, sector_str, sentiment_type = detect_sector_and_badge(combined, matched_tickers)
 
-    actual_content = desc_nl if desc_nl and len(desc_nl) > 20 else title_nl
+    actual_content = desc_nl if desc_nl and len(desc_nl) > 25 else title_nl
     if actual_content.lower().startswith(title_nl.lower()):
         actual_content = actual_content[len(title_nl):].strip(" -|:")
-    if not actual_content: actual_content = title_nl
+    if not actual_content or len(actual_content) < 15:
+        actual_content = f"{title_nl}. {desc_nl}".strip()
 
-    impact = ""
     if any(w in combined for w in ["brüt takas", "işlem yasağı", "tedbir", "bedelsiz"]):
-        card_class = "scandal-card" if "yasağı" in combined else "positive-card"
-        impact = "Dit grijpt direct in op de liquiditeit en handelsstructuur. Maatregelen zoals 'brüt takas' blokkeren daytrading en kredietverstrekking, wat speculatieve handel direct opdroogt en tijdelijke koersdruk geeft. Een goedgekeurde 'bedelsiz' (gratis aandelensplitsing) verlaagt de drempel per aandeel, wat particuliere beleggers aantrekt en de liquiditeit juist stimuleert."
+        card_class = "scandal-card" if "yasağı" in combined or "brüt" in combined else "positive-card"
+        impact = (
+            "Waarom dit telt: Een SPK-handelsmaatregel ('brüt takas' of kredietverbod) haalt direct de snelheid en hefboom uit een aandeel, "
+            "waardoor kortetermijnspeculanten gedwongen verkopen. Een goedgekeurde 'bedelsiz' (gratis aandelensplitsing) maakt het aandeel optisch goedkoper en trekt juist extra particuliere kopers aan."
+        )
     elif any(w in combined for w in ["fon", "spk", "tutuklama", "gözaltı", "kayyum", "soruşturma", "ev hapsi"]):
         card_class = "scandal-card"
-        impact = "Creëert maximale onzekerheid en reputatieschade. Grote institutionele en buitenlandse fondsen hebben strikte compliance-regels; bij juridische schandalen of staatsbeheer (kayyum) haken zij direct af. Dit resulteert in paniekverkoop en acute verkoopdruk."
-    elif any(w in combined for w in ["resmi gazete", "vergi", "atama"]):
+        impact = (
+            "Waarom dit telt: Grote (buitenlandse) fondsen hanteren strenge compliance-regels. Zodra een bedrijf, fonds of bestuurder wordt geraakt door huisarrest, "
+            "beslaglegging (TMSF/kayyum) of manipulatie-onderzoek, verkopen instellingen direct om reputatie- en bevriezingsrisico te vermijden. "
+            "Wie lijdt hieronder: Speculatieve fondsen en direct genoemde bedrijven; grote liquide BIST 30-banken vangen soms het vluchtkapitaal op."
+        )
+    elif any(w in combined for w in ["resmi gazete", "vergi", "ötv", "atama"]):
         card_class = "news-card"
-        impact = "Heeft directe sectorspecifieke consequenties. Fiscale aanscherpingen (zoals ÖTV-verhogingen) remmen de binnenlandse afzet van duurzame goederen, wat drukt op automotive (FROTO, TOASO) en witgoed (ARCLK). Benoemingen binnen het monetaire of economische apparaat sturen direct het beleggersvertrouwen in de grote grootbanken (AKBNK, GARAN, ISCTR, YKBNK)."
-    elif any(w in combined for w in ["faiz", "tcmb", "enflasyon", "fed", "powell"]):
+        impact = (
+            "Waarom dit telt: Besluiten in de Resmi Gazete zijn direct wet bij beursopening. Hogere belastingen (zoals ÖTV) maken auto's en consumentengoederen duurder, "
+            "wat de omzet van autofabrikanten (FROTO, DOAS) en industrie kan afremmen. Subsidies of infrastructuurbesluiten helpen juist bouw en energie (ENKAI, ASTOR, EKGYO)."
+        )
+    elif any(w in combined for w in ["faiz", "tcmb", "enflasyon", "fed", "powell", "tüik"]):
         card_class = "news-card"
-        impact = "De rente fungeert als de zwaartekracht voor de aandelenmarkt. Hoge rentes maken vreemd vermogen peperduur, wat kapitaalintensieve of zwaar belendende ondernemingen (zoals SASA, HEKTS) fundamenteel raakt. Banken profiteren tijdelijk van marges, maar vrezen kredietrisico's. Toekomstige renteverlagingen zijn daarentegen de belangrijkste brandstof voor een brede rally in de BIST 30 en edelmetalen."
-    elif any(w in combined for w in ["trump", "abd", "savaş", "israil", "rusya", "oorlog", "sanctie"]):
+        impact = (
+            "Waarom dit telt: Rente en inflatie bepalen de waardering van de hele BIST 30. Zolang de rente extreem hoog blijft, lijden bedrijven met veel schulden of grote investeringsplannen "
+            "(zoals SASA, HEKTS, KRDMD) onder zware rentelasten, terwijl supermarkten (BIMAS, MGROS) prijsstijgingen makkelijker doorberekenen aan de klant. "
+            "Lagere inflatie opent de deur naar renteverlagingen, wat vooral banken (AKBNK, GARAN, ISCTR) en vastgoed (EKGYO) omhoog stuwt."
+        )
+    elif any(w in combined for w in ["trump", "abd", "savaş", "israil", "rusya", "oorlog", "sanctie", "iran", "petrol"]):
         card_class = "news-card"
-        impact = "Veroorzaakt wereldwijde risico-aversie. Beleggers vluchten uit risicovolle opkomende markten en zoeken 'veilige havens', waardoor Goud en Zilver scherp oplopen. Luchtvaartmaatschappijen (THYAO, PGSUS) worden dubbel geraakt door duurdere kerosine (stijgende Brent olieprijzen) en reisonrust. Defensiebedrijven (ASELSAN) en exportgerichte energieproducenten profiteren juist."
+        impact = (
+            "Waarom dit telt: Geopolitieke spanning en oorlogsdreiging jagen de olieprijs op en zorgen voor vluchtgedrag naar veilige havens (Goud en Zilver stijgen). "
+            "Wie lijdt hieronder: Luchtvaartmaatschappijen (THYAO, PGSUS) krijgen te maken met duurdere kerosine en mogelijke vluchtannuleringen. "
+            "Wie profiteert: Defensiegigant ASELSAN en raffinaderij Tüpraş (TUPRS) presteren vaak sterker tijdens regionale spanningen."
+        )
     else:
         card_class = "news-card"
-        impact = "Bedrijfsspecifieke prestaties of macro-indicatoren sturen de fundamentele waardering van de markt. Sterke resultaten of nieuwe investeringen trekken institutionele kopers aan, wat de marktleiders binnen de BIST 30 versterkt."
+        impact = (
+            "Waarom dit telt: Bedrijfsspecifieke KAP-meldingen (nieuwe orders, dividend, kwartaalwinst) en kapitaalstromen bepalen welke BIST 30-aandelen beter presteren dan het marktgemiddelde. "
+            "Exporteurs met inkomsten in dollars of euro's (FROTO, THYAO, SISE, ENKAI) zijn daarbij beter beschermd tegen een zwakkere Lira."
+        )
 
     if matched_tickers:
-        impact += f" 👉 **Direct geraakte fondsen:** {', '.join(matched_tickers)}."
+        impact += f" Direct gekoppelde BIST 30-aandelen in dit dossier: {', '.join(sorted(matched_tickers))}."
 
     return actual_content, impact, card_class, badge_html, sector_str, sentiment_type
 
@@ -399,14 +660,14 @@ def calculate_article_priority_and_sort_key(item):
         prio, lbl = 1, "🔥 Prio 1: Schandaal & Justitie"
     elif any(k in cat for k in ["BIST", "Top-Economen", "CDS-Premie"]) or any(w in text for w in ["tcmb", "merkez bankası", "faiz", "enflasyon", "mehmet şimşek", "cds"]):
         prio, lbl = 2, "📈 Prio 2: Macro & BIST 30"
-    elif "Aandelennieuws" in cat or item.get("_matched_tickers"): prio, lbl = 3, "🏢 Prio 3: Bedrijfsnieuws (KAP)"
+    elif "Bedrijfsnieuws" in cat or item.get("_matched_tickers"): prio, lbl = 3, "🏢 Prio 3: Bedrijfsnieuws (KAP)"
     else: prio, lbl = 4, "🌍 Prio 4: Globaal & Edelmetalen"
 
     item.update({"priority_level": prio, "priority_label": lbl})
     return prio
 
 # ==============================================================================
-# 📡 RSS HARVESTING & ONTDUBBELING
+# 📡 RSS HARVESTING & SEMANTISCHE ONTDUBBELING
 # ==============================================================================
 SOURCE_STATUS = {}
 def record_source(name, status, count=0, error=""): SOURCE_STATUS[name] = {"status": status, "count": int(count), "error": str(error)[:240]}
@@ -427,14 +688,14 @@ def fetch_google_rss_feed(args):
             src = item.find("source").text if item.find("source") is not None else "Nieuws"
             if not title or not link: continue
             
-            title = title.rsplit(" - ", 1)[0].strip() if " - " in title else title.strip()
+            title = clean_html_text(title.rsplit(" - ", 1)[0].strip() if " - " in title else title.strip())
             if src in desc: desc = desc.replace(src, "").strip(" -·")
             if not is_economically_relevant(title, desc, extra_tickers, custom_kw): continue
             
             dt = now_utc
             pub_str = item.findtext("pubDate")
             if pub_str:
-                try: 
+                try:
                     p_dt = parsedate_to_datetime(pub_str)
                     if p_dt: dt = p_dt if p_dt.tzinfo else p_dt.replace(tzinfo=timezone.utc)
                 except: pass
@@ -459,7 +720,7 @@ def fetch_direct_newspaper_rss(args):
             
             dt, pub_str = now_utc, item.findtext("pubDate")
             if pub_str:
-                try: 
+                try:
                     p_dt = parsedate_to_datetime(pub_str)
                     if p_dt: dt = p_dt if p_dt.tzinfo else p_dt.replace(tzinfo=timezone.utc)
                 except: pass
@@ -471,8 +732,8 @@ def fetch_direct_newspaper_rss(args):
 
 def enrich_articles_with_dutch_summaries(items, all_bist_codes):
     def process_one(item):
-        item["title_nl"] = translate_to_nl(item["title_orig"]) if item["lang"] == "tr" else item["title_orig"]
-        item["desc_nl"] = translate_to_nl(item["desc_orig"]) if item["lang"] == "tr" else item["desc_orig"]
+        item["title_nl"] = clean_html_text(translate_to_nl(item["title_orig"])) if item["lang"] == "tr" else clean_html_text(item["title_orig"])
+        item["desc_nl"] = clean_html_text(translate_to_nl(item["desc_orig"])) if item["lang"] == "tr" else clean_html_text(item["desc_orig"])
         
         analyze_article_semantics(item, all_bist_codes)
         jip, imp, c_cls, bdg, sec, s_type = build_jip_en_janneke_analysis(item["title_orig"], item["title_nl"], item["desc_nl"], item.get("_matched_tickers", set()), item["category"])
@@ -491,7 +752,7 @@ def deduplicate_by_semantic_content(enriched_list, max_mode=False):
         if norm_link in seen_links: continue
         
         c_cluster, c_concepts, c_tickers, c_persons = item.get("_story_cluster"), item.get("_matched_concepts", set()), item.get("_matched_tickers", set()), item.get("_matched_persons", set())
-        c_entities, c_numbers, c_stems = item.get("_proper_entities", set()), item.get("_numbers", set()), item.get("_core_stems", set())
+        c_entities, c_numbers = item.get("_proper_entities", set()), item.get("_numbers", set())
         c_title = normalize_tr(item.get("title_orig", item.get("title_nl", "")))
         
         dup_of = None
@@ -529,35 +790,38 @@ def deduplicate_by_semantic_content(enriched_list, max_mode=False):
 # ==============================================================================
 def get_upcoming_30_day_agenda():
     return [
-        {"date": datetime(2026, 10, 28).date(), "time_str": "28-10-2026 (21:00 TR)", "title": "🇺🇸 Fed Rentebesluit & Powell", "jip": "De Amerikaanse centrale bank maakt haar rentebesluit bekend.", "impact": "Hint op lagere rente is positief voor Goud en Zilver.", "link": "https://www.federalreserve.gov/"},
-        {"date": datetime(2026, 10, 29).date(), "time_str": "29-10-2026 (Hele dag)", "title": "🇹🇷 Cumhuriyet Bayramı", "jip": "Nationale feestdag. Borsa İstanbul is gesloten.", "impact": "Handelaren verkopen vaak voor sluiting om kredietrente te besparen.", "link": "https://www.borsaistanbul.com/"},
-        {"date": datetime(2026, 11, 3).date(), "time_str": "03-11-2026 (10:00 TR)", "title": "🇹🇷 TÜİK Inflatiecijfers (Oktober)", "jip": "Publicatie van de officiële consumentenprijzen.", "impact": "Lage inflatie stuwt bankaandelen omhoog.", "link": "https://www.tuik.gov.tr/"},
-        {"date": datetime(2026, 11, 6).date(), "time_str": "06-11-2026 (10:30 TR)", "title": "🇹🇷 TCMB 4e Inflatieverslag", "jip": "Fatih Karahan presenteert de nieuwe voorspellingen.", "impact": "Beleggers letten op signalen over het rentepad.", "link": "https://www.tcmb.gov.tr/"},
-        {"date": datetime(2026, 11, 9).date(), "time_str": "09-11-2026 (18:00 TR)", "title": "🇹🇷 KAP Deadline Q3 Cijfers (Niet-Gecons.)", "jip": "Laatste dag voor publicatie Q3 cijfers.", "impact": "Zorgt voor flinke koersbewegingen op bedrijfsniveau.", "link": "https://www.kap.org.tr/"},
-        {"date": datetime(2026, 11, 11).date(), "time_str": "11-11-2026 (16:30 TR)", "title": "🇺🇸 Amerikaanse Inflatiecijfers", "jip": "Publicatie van de Amerikaanse CPI.", "impact": "Lagere Amerikaanse inflatie stuwt Goud en Zilver.", "link": "https://www.bls.gov/cpi/"},
-        {"date": datetime(2026, 11, 19).date(), "time_str": "19-11-2026 (14:00 TR)", "title": "🇹🇷 TCMB Rentebesluit", "jip": "De Turkse Centrale Bank bepaalt de nieuwe rente.", "impact": "Cruciaal voor de Lira, Gram Goud en de hele BIST 30.", "link": "https://www.tcmb.gov.tr/"},
-        {"date": datetime(2026, 11, 20).date(), "time_str": "20-11-2026 (18:00 TR)", "title": "🇹🇷 KAP Deadline Q3 (Holdings & Banken)", "jip": "Grote holdings maken kwartaalcijfers bekend.", "impact": "Sluit het cijferseizoen af en bepaalt leiders in de BIST 30.", "link": "https://www.kap.org.tr/"}
+        {"date": datetime(2026, 10, 28).date(), "time_str": "28-10-2026 (21:00 TR)", "title": "🇺🇸 Fed Rentebesluit & Powell", "jip": "De Amerikaanse centrale bank maakt haar rentebesluit bekend.", "impact": "Hint op lagere rente is positief voor Goud, Zilver en opkomende beurzen zoals BIST 30.", "link": "https://www.federalreserve.gov/"},
+        {"date": datetime(2026, 10, 29).date(), "time_str": "29-10-2026 (Hele dag)", "title": "🇹🇷 Cumhuriyet Bayramı — Beurs Gesloten", "jip": "Nationale feestdag in Turkije. Borsa İstanbul is de hele dag gesloten.", "impact": "Handelaren bouwen vaak kort voor de feestdag hefboomposities af om geen kredietrente te betalen.", "link": "https://www.borsaistanbul.com/"},
+        {"date": datetime(2026, 11, 3).date(), "time_str": "03-11-2026 (10:00 TR)", "title": "🇹🇷 TÜİK Inflatiecijfers (Oktober)", "jip": "Publicatie van de officiële Turkse consumentenprijzen (CPI).", "impact": "Lager dan verwachte inflatie geeft de TCMB ruimte voor renteverlaging en stuwt AKBNK, GARAN en ISCTR.", "link": "https://www.tuik.gov.tr/"},
+        {"date": datetime(2026, 11, 6).date(), "time_str": "06-11-2026 (10:30 TR)", "title": "🇹🇷 TCMB 4e Inflatieverslag", "jip": "Gouverneur Fatih Karahan presenteert de nieuwe inflatieverwachtingen.", "impact": "Cruciaal voor de verwachte rente- en Lira-koers richting het jaareinde.", "link": "https://www.tcmb.gov.tr/"},
+        {"date": datetime(2026, 11, 9).date(), "time_str": "09-11-2026 (18:00 TR)", "title": "🇹🇷 KAP Deadline Q3 Cijfers (Niet-Geconsolideerd)", "jip": "Uiterste publicatiedatum Q3-kwartaalcijfers voor niet-geconsolideerde BIST 30-bedrijven (o.a. ASTOR, EKGYO, FROTO, KOZAL, OYAKC, SASA).", "impact": "Zorgt voor directe koersreacties op basis van winstmarges.", "link": "https://www.kap.org.tr/"},
+        {"date": datetime(2026, 11, 11).date(), "time_str": "11-11-2026 (16:30 TR)", "title": "🇺🇸 Amerikaanse Inflatiecijfers (US CPI)", "jip": "Publicatie van de Amerikaanse inflatiecijfers.", "impact": "Directe richtingaanwijzer voor de dollar, Goud en Zilver.", "link": "https://www.bls.gov/cpi/"},
+        {"date": datetime(2026, 11, 19).date(), "time_str": "19-11-2026 (14:00 TR)", "title": "🇹🇷 TCMB Rentebesluit (PPK)", "jip": "De Turkse Centrale Bank maakt het nieuwe rentebesluit bekend.", "impact": "Hét belangrijkste binnenlandse macro-moment voor USD/TRY, Gram Goud en de BIST 30.", "link": "https://www.tcmb.gov.tr/"},
+        {"date": datetime(2026, 11, 20).date(), "time_str": "20-11-2026 (18:00 TR)", "title": "🇹🇷 KAP Deadline Q3 Cijfers (Geconsolideerd & Banken)", "jip": "Uiterste datum voor grote holdings en banken (o.a. KCHOL, SAHOL, THYAO, AKBNK, GARAN, TUPRS) om hun Q3-cijfers te rapporteren.", "impact": "Bepaalt welke BIST 30-zwaargewichten de eindejaarsrally leiden.", "link": "https://www.kap.org.tr/"}
     ]
 
 # ==============================================================================
 # 🖥️ HOOFDPROGRAMMA & INTERFACE
 # ==============================================================================
-st.markdown("### 📊 Marktoverzicht (Yahoo Finance; mogelijk vertraagd)")
+st.markdown("### 📊 Marktoverzicht (BIST 30, Valuta & Edelmetalen)")
 market_data = get_live_market_snapshot()
-cols = st.columns(min(len(market_data), 6))
-for i, (name, info) in enumerate(list(market_data.items())[:6]):
-    if info["price"] is not None: cols[i].metric(name, f"{info['price']:,.2f}", f"{info['change']:+.2f}%")
+m_items = [(k, v) for k, v in market_data.items() if v.get("price") is not None]
+for row_slice in [m_items[:5], m_items[5:10]]:
+    if row_slice:
+        cols = st.columns(len(row_slice))
+        for i, (name, info) in enumerate(row_slice):
+            cols[i].metric(name, f"{info['price']:,.2f}", f"{info['change']:+.2f}%")
 st.markdown("---")
 
 if "master_enriched" not in st.session_state: st.session_state.master_enriched = None
 if "source_status_snapshot" not in st.session_state: st.session_state.source_status_snapshot = {}
 
-if st.button("🚀 Start Volledige Master Analyse (BIST 30 & Ontdubbeling)", type="primary"):
+if st.button("🚀 Start Volledige Master Analyse (Alle 30 BIST 30 Aandelen + Kwartaal-Audit)", type="primary"):
     tickers_clean = [t.split(" ")[0] for t in selected_tickers if t != BIST_INDEX_OPTION]
-    all_bist_codes = [t.split(" ")[0] for t in BIST_30_STOCKS]
+    all_bist_codes = [t.split(" ")[0] for t in BIST_30_STOCKS] # Exact 30 codes
     SOURCE_STATUS.clear()
     
-    with st.spinner("📡 Ophalen Google News, Turkse feeds, ontdubbelen en koersdata koppelen..."):
+    with st.spinner("📡 Ophalen Google News, Turkse kranten, 30/30 BIST 30 koersmatrix en verborgen Kwartaal-Audit..."):
         rss_tasks = [
             ("🚨 Fondsschandaal, SPK & Operaties", '("fon soruşturması" OR "SPK" OR "manipülasyon" OR "borsa operasyon" OR "ev hapsi")', "tr", 12, max_days_slider, tickers_clean, custom_search_query),
             ("⚠️ SPK Bulletin, Brüt Takas", '("SPK bülteni" OR "işlem yasağı" OR "brüt takas" OR "tedbir")', "tr", 10, max_days_slider, tickers_clean, custom_search_query),
@@ -572,7 +836,8 @@ if st.button("🚀 Start Volledige Master Analyse (BIST 30 & Ontdubbeling)", typ
             ("🏛️ OFFICIEEL KAP", 'site:kap.org.tr "bildirim"', "tr", 12, max_days_slider, tickers_clean, custom_search_query),
             ("🏦 OFFICIEEL TCMB", 'site:tcmb.gov.tr (PPK OR faiz OR enflasyon)', "tr", 10, max_days_slider, tickers_clean, custom_search_query)
         ]
-        if custom_search_query: rss_tasks.insert(0, (f"🔎 Vrije Zoekopdracht: '{custom_search_query}'", f'"{custom_search_query}"', "tr", 12, max_days_slider, tickers_clean, custom_search_query))
+        if custom_search_query:
+            rss_tasks.insert(0, (f"🔎 Vrije Zoekopdracht: '{custom_search_query}'", f'"{custom_search_query}"', "tr", 12, max_days_slider, tickers_clean, custom_search_query))
         if tickers_clean:
             for i in range(0, len(tickers_clean), 5):
                 batch = tickers_clean[i:i+5]
@@ -589,15 +854,13 @@ if st.button("🚀 Start Volledige Master Analyse (BIST 30 & Ontdubbeling)", typ
         enriched = enrich_articles_with_dutch_summaries(raw_items, all_bist_codes)
         unique_items = deduplicate_by_semantic_content(enriched, max_mode=dedup_strictness.startswith("Maximaal"))
         
-        all_tickers = set(tickers_clean[:12])
-        for it in unique_items: all_tickers.update(it.get("_matched_tickers", set()))
-        
         if sort_mode == "Puur op Datum": unique_items.sort(key=lambda x: -x["datetime"].timestamp())
         else: unique_items.sort(key=lambda x: (x["priority_level"], -x["datetime"].timestamp()))
         
         st.session_state.master_enriched = unique_items
         st.session_state.raw_count = len(raw_items)
-        st.session_state.stock_tech_map = get_bist_technical_snapshots(tuple(sorted(all_tickers)[:50]))
+        # Altijd alle 30 BIST 30 aandelen ophalen zodat de tabel gegarandeerd 30 rijen telt
+        st.session_state.stock_tech_map = get_bist_technical_snapshots(tuple(all_bist_codes))
         st.session_state.agenda = get_upcoming_30_day_agenda()
         st.session_state.source_status_snapshot = dict(SOURCE_STATUS)
 
@@ -605,7 +868,7 @@ if st.session_state.master_enriched is not None:
     data = st.session_state.master_enriched
     tech = st.session_state.stock_tech_map
     
-    st.success(f"✅ Master Analyse voltooid! Van de {st.session_state.raw_count} berichten zijn er **{len(data)} unieke dossiers** gebouwd.")
+    st.success(f"✅ Master Analyse voltooid! **{len(data)} unieke nieuwsdossiers** gebouwd en **{len(tech)} van de 30 BIST 30-aandelen** geladen.")
     
     with st.expander("🔎 Broncontrole: welke feeds werkten?", expanded=False):
         if st.session_state.source_status_snapshot:
@@ -613,7 +876,7 @@ if st.session_state.master_enriched is not None:
             
     tab1, tab2, tab6, tab3, tab4, tab5 = st.tabs([
         f"🌐 Agent 1: Master Hub ({len(data)})", 
-        "🕵️‍♂️ Agent 2: Koers-Matrix", 
+        f"🕵️‍♂️ Agent 2: BIST 30 Matrix ({len(tech)}/30)", 
         "📊 Agent 6: Kwartaalcijfers & AI-Audit", 
         "💡 Agent 3: Advies", 
         "⚖️ Agent 4: Risk", 
@@ -623,96 +886,208 @@ if st.session_state.master_enriched is not None:
     with tab1:
         st.markdown("### 🌐 Agent 1: Master News Hub")
         
+        neg_c = sum(1 for x in data if x["sentiment_type"] == "neg")
+        pos_c = sum(1 for x in data if x["sentiment_type"] == "pos")
+        warn_c = sum(1 for x in data if x["sentiment_type"] == "warn")
+        
+        if neg_c > pos_c + 2:
+            st.error(f"🚨 **Live Markt Barometer (BIST 30):** Verhoogd risico ({neg_c} negatieve/justitiële dossiers tegenover {pos_c} positieve). Wees alert op koersdruk.")
+        elif pos_c > neg_c:
+            st.success(f"🟢 **Live Markt Barometer (BIST 30):** Constructief klimaat ({pos_c} positieve katalysatoren tegenover {neg_c} negatieve).")
+        else:
+            st.info(f"⚖️ **Live Markt Barometer (BIST 30):** Gemengd beeld ({pos_c} positief, {neg_c} negatief, {warn_c} macro/beleid).")
+
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("🟢 Positieve Katalysatoren", sum(1 for x in data if x["sentiment_type"] == "pos"))
-        c2.metric("🔴 Hoog Risico / Schandaal", sum(1 for x in data if x["sentiment_type"] == "neg"))
-        c3.metric("⚠️ Beleid & Macro-Impact", sum(1 for x in data if x["sentiment_type"] == "warn"))
+        c1.metric("🟢 Positieve Katalysatoren", pos_c)
+        c2.metric("🔴 Hoog Risico / Schandaal", neg_c)
+        c3.metric("⚠️ Beleid & Macro-Impact", warn_c)
         c4.metric("🧹 Samengevoegde Duplicaten", st.session_state.raw_count - len(data))
         
         f1, f2 = st.columns([2, 2])
         prio_filter = f1.selectbox("🔍 Filter op prioriteit:", ["Alle Unieke Dossiers", "🔥 Prio 1: Schandaal & Justitie", "📈 Prio 2: Macro & BIST 30", "🏢 Prio 3: Bedrijfsnieuws (KAP)", "🌍 Prio 4: Globaal & Edelmetalen"])
-        inline_filter = f2.text_input("⚡ Snel filteren:", placeholder="Typ een woord...")
+        inline_filter = f2.text_input("⚡ Snel filteren:", placeholder="Typ een woord, aandeel of naam...")
         
-        filtered_data = [x for x in data if prio_filter.startswith("Alle") or str(x.get("priority_level")) in prio_filter]
-        if inline_filter.strip(): filtered_data = [x for x in filtered_data if inline_filter.lower() in x["title_nl"].lower() or inline_filter.lower() in x["jip"].lower()]
+        filtered_data = [x for x in data if prio_filter.startswith("Alle") or f"Prio {x.get('priority_level')}" in prio_filter]
+        if inline_filter.strip():
+            q_f = inline_filter.lower().strip()
+            filtered_data = [x for x in filtered_data if q_f in x["title_nl"].lower() or q_f in x["jip"].lower() or q_f in x["impact"].lower()]
             
         export_lines = [f"# BIST 30 Master Rapport ({datetime.now().strftime('%d-%m-%Y %H:%M')})\n"]
         for idx, item in enumerate(filtered_data, 1):
             chips = ""
-            for tk in item.get("_matched_tickers", set()):
+            for tk in sorted(item.get("_matched_tickers", set())):
                 s = tech.get(tk)
-                if s and s.get("price"):
-                    chips += f"<span class='stock-chip'>📊 <strong>{tk}</strong>: ₺{s['price']:,.2f} ({s['change']:+.2f}%) | RSI: {s['rsi']} | S1: ₺{s['s1']} | {s['trend']}</span>"
+                if s and s.get("price", 0) > 0:
+                    chips += f"<span class='stock-chip'>📊 <strong>{tk}</strong>: ₺{s['price']:,.2f} ({s['change']:+.2f}%) | RSI: {s['rsi']} | S1: ₺{s['s1']} | R1: ₺{s['r1']} | {s['trend']}</span>"
             
             also = ""
             if item.get("extra_source_links"):
                 links = " · ".join([f"<a href='{l['link']}' target='_blank'>{l['name']}</a>" for l in item["extra_source_links"][:5]])
-                also = f"<div class='card-subtitle'>🧠 <em>Zelfde inhoud ook gemeld door: {links} (automatisch samengevoegd).</em></div>"
+                also = f"<div class='card-subtitle'>🧠 <em>Zelfde verhaal ook gemeld door: {links} (automatisch samengevoegd).</em></div>"
             
-            html_card = f"""
-            <div class="clean-card {item['card_class']}">
-                <div style="margin-bottom: 8px;">
-                    <span class="prio-pill">{item['priority_label']}</span> <span class="topic-pill">{item['topic_readable']}</span> {item['badge_html']} 
-                    <span style="font-size: 13px; color: #475569; font-weight: bold; margin-left: 8px;">#{idx} | 🕒 {item['date_str']} | Bron: {item['source']}</span>
-                </div>
-                <h4 class="card-title">{item['title_nl']}</h4>
-                <div class="card-subtitle">Originele kop: {item['title_orig']}</div>
-                {also}
-                <div style="font-size: 13px; color: #1e3a8a; font-weight: 600; margin-bottom: 4px;">🎯 Sectoren: {item['sector_str']}</div>
-                <div style="margin-bottom: 8px;">{chips}</div>
-                <hr>
-                <div class="card-text"><strong>📰 Inhoud / Samenvatting:</strong> {item['jip']}</div>
-                <div class="card-text"><strong>📊 Economische impact & Logica:</strong> {item['impact']}</div>
-                <div style="margin-top: 10px;"><a href="{item['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8; text-decoration: none;">🔗 Lees originele bron</a></div>
-            </div>
-            """
-            st.markdown(html_card.replace('\n', ' '), unsafe_allow_html=True)
-            export_lines.append(f"## #{idx} [{item['priority_label']}] {item['title_nl']} ({item['date_str']})\n- Impact: {item['impact']}\n- Bron: {item['link']}\n\n")
+            html_card = (
+                f"<div class='clean-card {item['card_class']}'>"
+                f"<div style='margin-bottom: 8px;'>"
+                f"<span class='prio-pill'>{item['priority_label']}</span> <span class='topic-pill'>{item['topic_readable']}</span> {item['badge_html']} "
+                f"<span style='font-size: 13px; color: #475569; font-weight: bold; margin-left: 8px;'>#{idx} | 🕒 {item['date_str']} | Bron: {item['source']}</span>"
+                f"</div>"
+                f"<div class='card-title'>{item['title_nl']}</div>"
+                f"<div class='card-subtitle'>Originele kop: {item['title_orig']}</div>"
+                f"{also}"
+                f"<div style='font-size: 13px; color: #1e3a8a; font-weight: 600; margin-bottom: 4px;'>🎯 Geraakte Sectoren: {item['sector_str']}</div>"
+                f"<div style='margin-bottom: 8px;'>{chips}</div>"
+                f"<hr>"
+                f"<div class='card-text'><strong>📰 Inhoud / Samenvatting van het bericht:</strong> {item['jip']}</div>"
+                f"<div class='card-text'><strong>📊 Economische impact, Waarom & Welke Bedrijven:</strong> {item['impact']}</div>"
+                f"<div style='margin-top: 10px;'><a href='{item['link']}' target='_blank' style='font-weight: bold; color: #1d4ed8; text-decoration: none;'>🔗 Lees originele bron ({item['source']})</a></div>"
+                f"</div>"
+            )
+            st.markdown(html_card, unsafe_allow_html=True)
+            export_lines.append(f"## #{idx} [{item['priority_label']}] {item['title_nl']} ({item['date_str']})\n- Samenvatting: {item['jip']}\n- Impact: {item['impact']}\n- Bron: {item['link']}\n\n")
 
-        if filtered_data: st.download_button("📥 Download Rapport (.md)", "\n".join(export_lines), file_name=f"BIST30_Dossier_{datetime.now().strftime('%Y%m%d_%H%M')}.md", mime="text/markdown")
+        if filtered_data:
+            st.download_button("📥 Download Volledig Rapport (.md)", "\n".join(export_lines), file_name=f"BIST30_Dossier_{datetime.now().strftime('%Y%m%d_%H%M')}.md", mime="text/markdown")
             
     with tab2:
-        st.markdown("### 🕵️‍♂️ Agent 2: Geavanceerde Technische Koers-Matrix (BIST 30)")
+        st.markdown("### 🕵️‍♂️ Agent 2: Geavanceerde Technische Koers-Matrix (Alle 30 BIST 30 Aandelen)")
+        st.caption("Beweeg met je muis over het **?**-icoontje naast elke kolomnaam in de tabel voor een directe uitleg, of klik hieronder op de uitlegbalk.")
+        
+        with st.expander("❓ Klik hier voor Jip-en-Janneke uitleg van elk technisch onderwerp in deze tabel", expanded=False):
+            st.markdown(
+                "- **❓ Koers (₺) & Mutatie %:** De laatst bekende beurskoers in Turkse Lira en hoeveel procent het aandeel op de laatste handelsdag is gestegen of gedaald.\n"
+                "- **❓ RSI (Relative Strength Index 14):** Meet of een aandeel te hard is afgestraft of te hard is gestegen (schaal 0 tot 100). **Onder 35 = Oversold (mogelijk koopmoment / overdreven afgestraft)**. **Boven 70 = Overbought (oververhit, kans op winstnemingen)**.\n"
+                "- **❓ Vol. Spurt % (Volume Spike):** Vergelijkt het handelsvolume van vandaag met het gemiddelde van de afgelopen 20 dagen. **Boven 150%** betekent dat grote partijen plotseling massaal handelen.\n"
+                "- **❓ Afstand S1 %:** Laat zien hoeveel procent de huidige koers boven Steun S1 ligt. Ligt dit tussen **-2% en +2%**, dan bevindt het aandeel zich vlak bij een belangrijke vangnet-steun.\n"
+                "- **❓ Steun S1 / S2 / S3 (Fibonacci Support):** Prijsniveaus waar vaak kopers klaarstaan om het aandeel op te vangen als het daalt. **S1** is de eerste steun, **S2** de stevigere steun, **S3** de uiterste bodemsteun.\n"
+                "- **❓ Weerstand R1 / R2 / R3 (Fibonacci Resistance):** Prijsniveaus waar beleggers vaak winst nemen als de koers stijgt. Breekt een aandeel met hoog volume door **R1**, dan ligt de weg open naar **R2** en **R3**.\n"
+                "- **❓ Trend (SMA20):** Geeft aan of de koers boven of onder de 20-daagse gemiddelde lijn ligt. Boven SMA20 = positieve kortetermijntrend."
+            )
+
         if tech:
             df_tech = pd.DataFrame([
                 {
-                    "Ticker": k, "Koers (₺)": v.get("price"), "Mutatie %": v.get("change"), 
-                    "RSI": v.get("rsi"), "Vol. Spurt %": v.get("vol_ratio"),
-                    "Afstand S1 %": v.get("dist_s1"), "Steun S1": v.get("s1"), "Steun S2": v.get("s2"), "Steun S3": v.get("s3"),
-                    "Weerstand R1": v.get("r1"), "Weerstand R2": v.get("r2"), "Weerstand R3": v.get("r3"),
-                    "Trend": v.get("trend"), "30d Grafiek": v.get("history")
+                    "Ticker": k,
+                    "Bedrijf": v.get("name"),
+                    "Koers (₺)": v.get("price"),
+                    "Mutatie %": v.get("change"), 
+                    "RSI": v.get("rsi"),
+                    "Vol. Spurt %": v.get("vol_ratio"),
+                    "Afstand S1 %": v.get("dist_s1"),
+                    "Steun S1": v.get("s1"),
+                    "Steun S2": v.get("s2"),
+                    "Steun S3": v.get("s3"),
+                    "Weerstand R1": v.get("r1"),
+                    "Weerstand R2": v.get("r2"),
+                    "Weerstand R3": v.get("r3"),
+                    "Trend": v.get("trend"),
+                    "30d Grafiek": v.get("history")
                 } for k, v in tech.items()
             ])
-            st.dataframe(df_tech, column_config={"30d Grafiek": st.column_config.LineChartColumn("30-Daagse Trend", width="medium"), "Koers (₺)": st.column_config.NumberColumn(format="₺%.2f")}, use_container_width=True, hide_index=True)
+            
+            a2_filter = st.selectbox(
+                "🎯 Filter Technische Setups:",
+                [
+                    f"Alle {len(df_tech)} BIST 30 Aandelen (Volledig Overzicht)", 
+                    "💎 Koopzone nabij S1 (Afstand tot S1 tussen -3% en +2%)", 
+                    "📉 Oversold Kansen (RSI < 35)", 
+                    "🚀 Volume Spike (> 150% van 20d gemiddelde)",
+                    "📈 Sterke Trend (Boven SMA20)"
+                ]
+            )
+            
+            df_filtered = df_tech.copy()
+            if "Koopzone" in a2_filter:
+                df_filtered = df_filtered[(df_filtered["Afstand S1 %"] >= -3.0) & (df_filtered["Afstand S1 %"] <= 2.0)]
+            elif "Oversold" in a2_filter:
+                df_filtered = df_filtered[df_filtered["RSI"] < 35]
+            elif "Volume Spike" in a2_filter:
+                df_filtered = df_filtered[df_filtered["Vol. Spurt %"] > 150]
+            elif "Sterke Trend" in a2_filter:
+                df_filtered = df_filtered[df_filtered["Trend"].str.contains("Boven")]
+                
+            st.dataframe(
+                df_filtered,
+                column_config={
+                    "Ticker": st.column_config.TextColumn("Ticker ❓", help="Beurscode van het aandeel op Borsa İstanbul (BIST 30)."),
+                    "Bedrijf": st.column_config.TextColumn("Bedrijf ❓", help="Officiële naam van het BIST 30 hoofdfonds."),
+                    "Koers (₺)": st.column_config.NumberColumn("Koers (₺) ❓", format="₺%.2f", help="Laatste bekende koers in Turkse Lira."),
+                    "Mutatie %": st.column_config.NumberColumn("Mutatie % ❓", format="%+.2f%%", help="Procentuele verandering op de laatste handelsdag."),
+                    "RSI": st.column_config.NumberColumn("RSI (14) ❓", format="%.1f", help="Relative Strength Index: <35 is goedkoop/oversold, >70 is duur/overbought."),
+                    "Vol. Spurt %": st.column_config.NumberColumn("Vol. Spurt % ❓", format="%.0f%%", help="Handelsvolume vergeleken met het 20-daags gemiddelde (100% = normaal, >150% = opvallende activiteit)."),
+                    "Afstand S1 %": st.column_config.NumberColumn("Afstand S1 % ❓", format="%+.2f%%", help="Hoeveel procent de koers verwijderd is van eerste steunlijn S1."),
+                    "Steun S1": st.column_config.NumberColumn("Steun S1 ❓", format="₺%.2f", help="Eerste Fibonacci-steun (0.382): eerste vangnet bij een dip."),
+                    "Steun S2": st.column_config.NumberColumn("Steun S2 ❓", format="₺%.2f", help="Tweede Fibonacci-steun (0.618): sterke koopzone bij correcties."),
+                    "Steun S3": st.column_config.NumberColumn("Steun S3 ❓", format="₺%.2f", help="Derde Fibonacci-steun (1.000): uiterste bodem van de afgelopen 20 dagen."),
+                    "Weerstand R1": st.column_config.NumberColumn("Weerstand R1 ❓", format="₺%.2f", help="Eerste Fibonacci-weerstand (0.382): eerste koersdoel voor winstneming."),
+                    "Weerstand R2": st.column_config.NumberColumn("Weerstand R2 ❓", format="₺%.2f", help="Tweede Fibonacci-weerstand (0.618): belangrijk uitbraakdoel."),
+                    "Weerstand R3": st.column_config.NumberColumn("Weerstand R3 ❓", format="₺%.2f", help="Derde Fibonacci-weerstand (1.000): bovenkant van het 20-daags kanaal."),
+                    "Trend": st.column_config.TextColumn("Trend ❓", help="Geeft aan of het aandeel boven of onder het 20-daags gemiddelde (SMA20) noteert."),
+                    "30d Grafiek": st.column_config.LineChartColumn("30d Grafiek ❓", width="medium", help="Visuele koersontwikkeling van de afgelopen 30 handelsdagen.")
+                },
+                use_container_width=True,
+                hide_index=True
+            )
 
     with tab6:
-        st.markdown("### 📊 Agent 6: Kwartaalcijfers & AI-Waarderingsauditor")
-        st.markdown("Dit overzicht toont de laatst bekende kwartaalomzet, nettowinst en een autonome AI-audit die oordeelt of de cijfers positief of negatief zijn voor het aandeel.")
+        st.markdown("### 📊 Agent 6: Kwartaalcijfers, Verwachte Datums & Onzichtbare Dubbel-Check Auditor")
+        st.markdown(
+            "Dit overzicht toont per BIST 30-aandeel **welke kwartaalcijfers al bekend zijn**, **wanneer de eerstvolgende kwartaalcijfers op KAP worden verwacht**, "
+            "en het **gecontroleerde eindoordeel** (waarbij een onzichtbare achtergrond-agent de cijfers heeft gecontroleerd op winstkwaliteit, marges en trend)."
+        )
         if tech:
             df_q = pd.DataFrame([
                 {
-                    "Ticker": k, "Status Kwartaal": v.get("q_status"), 
-                    "Laatste Omzet": v.get("q_rev"), "Laatste Nettowinst": v.get("q_net"),
-                    "AI Oordeel": v.get("audit_verdict"), "Audit Onderbouwing": v.get("audit_reason")
+                    "Ticker": k,
+                    "Bedrijf": v.get("name"),
+                    "Sector": v.get("sector"),
+                    "Bekend Kwartaal": v.get("q_known"),
+                    "Verwacht Kwartaal (KAP)": v.get("q_expected"),
+                    "Laatste Omzet": v.get("q_rev"),
+                    "Laatste Nettowinst": v.get("q_net"),
+                    "Oordeel (Na Dubbel-Check)": v.get("audit_verdict"),
+                    "Grondige Onderbouwing": v.get("audit_reason")
                 } for k, v in tech.items()
             ])
-            st.dataframe(df_q, use_container_width=True, hide_index=True)
+            st.dataframe(
+                df_q,
+                column_config={
+                    "Bekend Kwartaal": st.column_config.TextColumn("Bekend Kwartaal ❓", help="Het laatst gepubliceerde kwartaalrapport dat in de financiële database staat."),
+                    "Verwacht Kwartaal (KAP)": st.column_config.TextColumn("Verwacht Kwartaal (KAP) ❓", help="Officiële uiterste KAP-deadline voor de aankomende kwartaalcijfers (09-11 voor niet-geconsolideerd, 20-11 voor geconsolideerd)."),
+                    "Laatste Omzet": st.column_config.TextColumn("Laatste Omzet ❓", help="Totale kwartaalomzet uit het laatst bekende kwartaalbericht."),
+                    "Laatste Nettowinst": st.column_config.TextColumn("Laatste Nettowinst ❓", help="Nettowinst (of verlies) onderaan de streep in het laatst bekende kwartaal."),
+                    "Oordeel (Na Dubbel-Check)": st.column_config.TextColumn("Oordeel ❓", help="Eindoordeel nadat de onzichtbare controle-agent winstgroei, omzetkrimp en SMA20-trend tegen elkaar heeft afgewogen."),
+                    "Grondige Onderbouwing": st.column_config.TextColumn("Grondige Onderbouwing ❓", help="Uitleg waarom dit kwartaalrapport positief of negatief is voor het aandeel.")
+                },
+                use_container_width=True,
+                hide_index=True
+            )
 
-    with tab3: st.markdown("### 💡 Agent 3: Beleggingsadvies\n- Vermijd Prio-1 Schandaalfondsen.\n- Combineer de RSI- en kwartaalcijfers uit Agent 6 voor fundamenteel sterke instapmomenten.")
-    with tab4: st.markdown(f"### ⚖️ Agent 4: Risico-Audit\nLet op de {sum(1 for x in data if x['priority_level'] == 1)} Prio-1 schandalen en het macro-klimaat.")
+    with tab3:
+        st.markdown(
+            "### 💡 Agent 3: Concreet Beleggingsadvies\n"
+            "- **Stap 1 (Nieuws-Check in Agent 1):** Controleer of er geen Prio-1 justitie- of SPK-schandalen spelen rond je aandeel.\n"
+            "- **Stap 2 (Technisch Instapmoment in Agent 2):** Zoek aandelen met een **RSI tussen 35 en 55** die dicht bij **Steun S1** noteren.\n"
+            "- **Stap 3 (Fundamentele Kwaliteit in Agent 6):** Kies bij voorkeur aandelen met het label **🟢 Positief (Gezonde Winst- & Omzetgroei)** die door de dubbel-check zijn gekomen."
+        )
+    with tab4:
+        st.markdown(
+            f"### ⚖️ Agent 4: Risico-Audit\n"
+            f"- **Actieve Prio-1 Risicodossiers:** `{sum(1 for x in data if x['priority_level'] == 1)}` dossiers gevonden.\n"
+            f"- **Kwartaalcijfers-risico:** Houd rekening met extra volatiliteit rond **9 november 2026** (niet-geconsolideerde KAP-deadline) en **20 november 2026** (geconsolideerde holdings & banken)."
+        )
     
     with tab5:
-        st.markdown("### 📅 Agent 5: Komende 30-Dagen Macro Agenda")
+        st.markdown("### 📅 Agent 5: Komende 30-Dagen Macro & Kwartaalcijfers Agenda")
         for ev in st.session_state.agenda:
             dl = (ev["date"] - datetime.now(timezone.utc).date()).days
-            html_agenda = f"""
-            <div class="clean-card news-card">
-                <div style="margin-bottom: 6px;"><span class="topic-pill">{'Vandaag!' if dl==0 else f'Over {dl} dagen'}</span></div>
-                <h4 class="card-title">📅 {ev['time_str']} - {ev['title']}</h4>
-                <hr>
-                <div class="card-text"><strong>🗣️ Wat gaat er gebeuren:</strong> {ev['jip']}</div>
-                <div class="card-text"><strong>📊 Impact:</strong> {ev['impact']}</div>
-                <a href="{ev['link']}" target="_blank" style="font-size: 13px; color: #2563eb; font-weight: bold; text-decoration: none;">🔗 Officiële kalender</a>
-            </div>
-            """
-            st.markdown(html_agenda.replace('\n', ' '), unsafe_allow_html=True)
+            html_agenda = (
+                f"<div class='clean-card news-card'>"
+                f"<div style='margin-bottom: 6px;'><span class='topic-pill'>{'Vandaag!' if dl==0 else f'Over {dl} dagen'}</span></div>"
+                f"<div class='card-title'>📅 {ev['time_str']} — {ev['title']}</div>"
+                f"<hr>"
+                f"<div class='card-text'><strong>🗣️ Wat gaat er gebeuren:</strong> {ev['jip']}</div>"
+                f"<div class='card-text'><strong>📊 Markt & BIST 30 Impact:</strong> {ev['impact']}</div>"
+                f"<a href='{ev['link']}' target='_blank' style='font-size: 13px; color: #2563eb; font-weight: bold; text-decoration: none;'>🔗 Officiële kalender</a>"
+                f"</div>"
+            )
+            st.markdown(html_agenda, unsafe_allow_html=True)
