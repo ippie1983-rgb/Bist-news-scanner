@@ -111,7 +111,7 @@ dedup_strictness = st.sidebar.radio("🧠 Inhoudelijke Ontdubbeling:", ["Slim (1
 sort_mode = st.sidebar.radio("Sorteervolgorde in Master Hub:", ["Op Prioriteit (Nieuwste eerst)", "Puur op Datum"], index=0)
 
 # ==============================================================================
-# 🧠 NLP & SEMANTISCHE FILTERS
+# 🧠 NLP & SEMANTISCHE FILTERS 
 # ==============================================================================
 HARD_EXCLUDE_WORDS = [
     "futbol", "maç", "gol", "süper lig", "galatasaray", "fenerbahçe", "beşiktaş", "trabzonspor", "derbi", "hakem", "transfer", 
@@ -306,26 +306,36 @@ def build_jip_en_janneke_analysis(title_orig, title_nl, desc_nl, matched_tickers
     combined = f"{title_orig} {title_nl} {desc_nl}".lower()
     badge_html, sector_str, sentiment_type = detect_sector_and_badge(combined, matched_tickers)
 
+    # De échte inhoud van het nieuws als samenvatting (desc_nl), val terug op titel als desc leeg is
+    actual_content = desc_nl if desc_nl and len(desc_nl) > 20 else title_nl
+    # Verwijder de titel uit de beschrijving als RSS hem dubbel meestuurt
+    if actual_content.lower().startswith(title_nl.lower()):
+        actual_content = actual_content[len(title_nl):].strip(" -|:")
+    if not actual_content: 
+        actual_content = title_nl
+
+    # Bepaal de generieke economische impact voor de analyse-laag
     if any(w in combined for w in ["brüt takas", "işlem yasağı", "tedbir", "bedelsiz"]):
-        card_class, jip = "scandal-card" if "yasağı" in combined else "positive-card", f"De SPK of Borsa İstanbul heeft een officieel besluit genomen: {title_nl}."
+        card_class = "scandal-card" if "yasağı" in combined else "positive-card"
         impact = "Beïnvloedt direct de handel van het aandeel. Brüt takas droogt speculatie op, een 'bedelsiz' (splitsing) trekt vaak particulieren aan."
     elif any(w in combined for w in ["fon", "spk", "tutuklama", "gözaltı", "kayyum", "soruşturma", "ev hapsi"]):
-        card_class, jip = "scandal-card", f"Justitie of SPK grijpt in. Er is sprake van onderzoeken, arrestaties, of huisarrest: {title_nl}."
+        card_class = "scandal-card"
         impact = "Zorgt voor acute koersdruk en paniek bij de direct betrokken bedrijven. Institutioneel geld vlucht weg."
     elif any(w in combined for w in ["resmi gazete", "vergi", "atama"]):
-        card_class, jip = "news-card", f"Nieuw overheidsbesluit in het Staatsblad (Resmi Gazete): {title_nl}."
-        impact = "Nieuwe belastingen (zoals ÖTV) drukken direct de koersen van de geraakte sector."
+        card_class = "news-card"
+        impact = "Nieuwe belastingen (zoals ÖTV) drukken direct de koersen van de geraakte sector. Steunmaatregelen stuwen ze."
     elif any(w in combined for w in ["faiz", "tcmb", "enflasyon", "fed", "powell"]):
-        card_class, jip = "news-card", f"Cruciale update over rente of inflatie: {title_nl}."
+        card_class = "news-card"
         impact = "Stijgende rentes maken lenen duurder, wat BIST 30 aandelen drukt. Verwachting van lagere rente stuwt Goud en Zilver."
     elif any(w in combined for w in ["trump", "abd", "savaş", "israil", "rusya", "oorlog", "sanctie"]):
-        card_class, jip = "news-card", f"Geopolitieke spanningen of sancties: {title_nl}."
+        card_class = "news-card"
         impact = "Zorgt voor onrust op de beurs. Kapitaal vlucht naar 'veilige havens', waardoor Goud en Zilver scherp in prijs stijgen."
     else:
-        card_class, jip = "news-card", f"Actueel economisch of bedrijfsnieuws: {title_nl}."
-        impact = "Geeft richting aan de dagelijkse handel. Positieve cijfers ondersteunen het vertrouwen."
+        card_class = "news-card"
+        impact = "Geeft richting aan de dagelijkse handel. Specifieke bedrijfs- of macrocijfers bepalen de trend."
 
-    return jip, impact, card_class, badge_html, sector_str, sentiment_type
+    # Return de ECHTE inhoud in de plaats van de oude 'jip' variabele
+    return actual_content, impact, card_class, badge_html, sector_str, sentiment_type
 
 def calculate_article_priority_and_sort_key(item):
     cat, text = item.get("category", ""), f"{item.get('title_orig', '')} {item.get('title_nl', '')} {item.get('desc_orig', '')}".lower()
@@ -411,6 +421,7 @@ def enrich_articles_with_dutch_summaries(items, all_bist_codes):
         item["desc_nl"] = translate_to_nl(item["desc_orig"]) if item["lang"] == "tr" else item["desc_orig"]
         
         analyze_article_semantics(item, all_bist_codes)
+        # item["jip"] is nu de échte inhoud (actual_content)
         jip, imp, c_cls, bdg, sec, s_type = build_jip_en_janneke_analysis(item["title_orig"], item["title_nl"], item["desc_nl"], item.get("_matched_tickers", set()), item["category"])
         item.update({"jip": jip, "impact": imp, "card_class": c_cls, "badge_html": bdg, "sector_str": sec, "sentiment_type": s_type})
         calculate_article_priority_and_sort_key(item)
@@ -461,7 +472,7 @@ def deduplicate_by_semantic_content(enriched_list, max_mode=False):
     return unique_items
 
 # ==============================================================================
-# 📅 AGENT 5: 30-DAGEN AGENDA
+# 📅 AGENT 5: 30-DAGEN AGENDA (8 Events)
 # ==============================================================================
 def get_upcoming_30_day_agenda():
     return [
@@ -591,7 +602,7 @@ if st.session_state.master_enriched is not None:
                 <div style="font-size: 13px; color: #1e3a8a; font-weight: 600; margin-bottom: 4px;">🎯 Sectoren: {item['sector_str']}</div>
                 <div style="margin-bottom: 8px;">{chips}</div>
                 <hr>
-                <div class="card-text"><strong>🗣️ Wat betekent dit:</strong> {item['jip']}</div>
+                <div class="card-text"><strong>📰 Inhoud / Samenvatting:</strong> {item['jip']}</div>
                 <div class="card-text"><strong>📊 Economische impact:</strong> {item['impact']}</div>
                 <div style="margin-top: 10px;"><a href="{item['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8; text-decoration: none;">🔗 Lees originele bron</a></div>
             </div>
