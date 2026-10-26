@@ -1028,7 +1028,7 @@ if st.session_state.master_enriched is not None:
                 hide_index=True
             )
 
-    with tab6:
+        with tab6:
         st.markdown("### 📊 Agent 6: Kwartaalcijfers, Verwachte Datums & Onzichtbare Dubbel-Check Auditor")
         st.markdown(
             "Dit overzicht toont per BIST 30-aandeel **welke kwartaalcijfers al bekend zijn**, **wanneer de eerstvolgende kwartaalcijfers op KAP worden verwacht**, "
@@ -1055,12 +1055,26 @@ if st.session_state.master_enriched is not None:
                     "Verwacht Kwartaal (KAP)": st.column_config.TextColumn("Verwacht Kwartaal (KAP) ❓", help="Officiële uiterste KAP-deadline voor de aankomende kwartaalcijfers (09-11 voor niet-geconsolideerd, 20-11 voor geconsolideerd)."),
                     "Laatste Omzet": st.column_config.TextColumn("Laatste Omzet ❓", help="Totale kwartaalomzet uit het laatst bekende kwartaalbericht."),
                     "Laatste Nettowinst": st.column_config.TextColumn("Laatste Nettowinst ❓", help="Nettowinst (of verlies) onderaan de streep in het laatst bekende kwartaal."),
-                    "Oordeel (Na Dubbel-Check)": st.column_config.TextColumn("Oordeel ❓", help="Eindoordeel nadat de onzichtbare controle-agent winstgroei, omzetkrimp en SMA20-trend tegen elkaar heeft afgewogen."),
-                    "Grondige Onderbouwing": st.column_config.TextColumn("Grondige Onderbouwing ❓", help="Uitleg waarom dit kwartaalrapport positief of negatief is voor het aandeel.")
+                    "Oordeel (Na Dubbel-Check)": st.column_config.TextColumn("Oordeel ❓", width="medium", help="Eindoordeel nadat de onzichtbare controle-agent winstgroei, omzetkrimp en SMA20-trend tegen elkaar heeft afgewogen."),
+                    "Grondige Onderbouwing": st.column_config.TextColumn("Grondige Onderbouwing ❓ (Dubbelklik of schuif 👉)", width="large", help="Dubbelklik op een vakje of gebruik het schuifvenster hieronder om de volledige zin te lezen.")
                 },
                 use_container_width=True,
                 hide_index=True
             )
+
+            st.markdown("#### ↔️ Volledige Onderbouwing (Horizontaal verschuifbaar per aandeel)")
+            st.caption("Veeg of schuif in de balkjes hieronder naar rechts om de volledige tekst van de Grondige Onderbouwing te lezen:")
+            scroll_rows = ""
+            for k, v in tech.items():
+                scroll_rows += (
+                    f"<div style='background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #1e3a8a; "
+                    f"border-radius:6px; padding:10px 12px; margin-bottom:8px; overflow-x:auto; white-space:nowrap; font-size:14px; color:#0f172a;'>"
+                    f"<strong>{k} ({v.get('name')})</strong> — {v.get('audit_verdict')} &nbsp;|&nbsp; "
+                    f"<span>{v.get('audit_reason')}</span>"
+                    f"</div>"
+                )
+            st.markdown(scroll_rows, unsafe_allow_html=True)
+
 
     with tab3:
         st.markdown(
