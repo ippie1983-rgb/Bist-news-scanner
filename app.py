@@ -111,7 +111,7 @@ dedup_strictness = st.sidebar.radio("🧠 Inhoudelijke Ontdubbeling:", ["Slim (1
 sort_mode = st.sidebar.radio("Sorteervolgorde in Master Hub:", ["Op Prioriteit (Nieuwste eerst)", "Puur op Datum"], index=0)
 
 # ==============================================================================
-# 🧠 NLP & SEMANTISCHE FILTERS (ORIGINELE ZWARE MOTOR)
+# 🧠 NLP & SEMANTISCHE FILTERS 
 # ==============================================================================
 HARD_EXCLUDE_WORDS = [
     "futbol", "maç", "gol", "süper lig", "galatasaray", "fenerbahçe", "beşiktaş", "trabzonspor", "derbi", "hakem", "transfer", 
@@ -199,7 +199,6 @@ def analyze_article_semantics(item, all_bist_tickers):
         
     core_stems = {w[:5] for w in re.findall(r'[a-z0-9]{4,}', text_norm) if w not in STOPWORDS_ALL and w[:5] not in STOPWORDS_ALL}
     
-    # Bepaal Story Cluster
     cluster, topic = None, "📰 Algemeen Economisch Bericht"
     if "CONCEPT_HUISARREST" in m_concepts: cluster, topic = "CLUSTER_HUISARREST_ZAAK", "⚖️ Dossier: Huisarrest & Maatregel"
     elif "CONCEPT_FONDS_MANIPULATIE" in m_concepts: cluster, topic = "CLUSTER_FONDS_SCHANDAAL", "🚨 Dossier: Fondsschandaal"
@@ -227,7 +226,10 @@ def translate_to_nl(text):
 
 def clean_html_text(raw_html):
     if not raw_html: return ""
-    return re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', raw_html))).strip()
+    clean = html.unescape(re.sub(r'<[^>]+>', ' ', raw_html))
+    # CRUCIAAL: Vervang onzichtbare enters, tabs en backticks die de code-block render triggeren
+    clean = clean.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').replace('`', "'")
+    return re.sub(r'\s+', ' ', clean).strip()
 
 # ==============================================================================
 # 📊 LIVE MARKTDATA & TECHNISCHE INDICATOREN (YFINANCE)
@@ -576,23 +578,24 @@ if st.session_state.master_enriched is not None:
                 links = " · ".join([f"<a href='{l['link']}' target='_blank'>{l['name']}</a>" for l in item["extra_source_links"][:5]])
                 also = f"<div class='card-subtitle'>🧠 <em>Zelfde inhoud ook gemeld door: {links} (automatisch samengevoegd).</em></div>"
             
+            # STRIKTE LINKS-UITLIJNING VOOR HTML OM SCROLLBALK TE BLOKKEREN
             st.markdown(f"""
-            <div class="clean-card {item['card_class']}">
-                <div style="margin-bottom: 8px;">
-                    <span class="prio-pill">{item['priority_label']}</span> <span class="topic-pill">{item['topic_readable']}</span> {item['badge_html']} 
-                    <span style="font-size: 13px; color: #475569; font-weight: bold; margin-left: 8px;">#{idx} | 🕒 {item['date_str']} | Bron: {item['source']}</span>
-                </div>
-                <h4 class="card-title">{item['title_nl']}</h4>
-                <div class="card-subtitle">Originele kop: {item['title_orig']}</div>
-                {also}
-                <div style="font-size: 13px; color: #1e3a8a; font-weight: 600; margin-bottom: 4px;">🎯 Sectoren: {item['sector_str']}</div>
-                <div style="margin-bottom: 8px;">{chips}</div>
-                <hr>
-                <div class="card-text"><strong>🗣️ Wat betekent dit:</strong> {item['jip']}</div>
-                <div class="card-text"><strong>📊 Economische impact:</strong> {item['impact']}</div>
-                <div style="margin-top: 10px;"><a href="{item['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8; text-decoration: none;">🔗 Lees originele bron</a></div>
-            </div>
-            """, unsafe_allow_html=True)
+<div class="clean-card {item['card_class']}">
+    <div style="margin-bottom: 8px;">
+        <span class="prio-pill">{item['priority_label']}</span> <span class="topic-pill">{item['topic_readable']}</span> {item['badge_html']} 
+        <span style="font-size: 13px; color: #475569; font-weight: bold; margin-left: 8px;">#{idx} | 🕒 {item['date_str']} | Bron: {item['source']}</span>
+    </div>
+    <h4 class="card-title">{item['title_nl']}</h4>
+    <div class="card-subtitle">Originele kop: {item['title_orig']}</div>
+    {also}
+    <div style="font-size: 13px; color: #1e3a8a; font-weight: 600; margin-bottom: 4px;">🎯 Sectoren: {item['sector_str']}</div>
+    <div style="margin-bottom: 8px;">{chips}</div>
+    <hr>
+    <div class="card-text"><strong>🗣️ Wat betekent dit:</strong> {item['jip']}</div>
+    <div class="card-text"><strong>📊 Economische impact:</strong> {item['impact']}</div>
+    <div style="margin-top: 10px;"><a href="{item['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8; text-decoration: none;">🔗 Lees originele bron</a></div>
+</div>
+""", unsafe_allow_html=True)
             export_lines.append(f"## #{idx} [{item['priority_label']}] {item['title_nl']} ({item['date_str']})\n- Impact: {item['impact']}\n- Bron: {item['link']}\n\n")
 
         if filtered_data: st.download_button("📥 Download Rapport (.md)", "\n".join(export_lines), file_name=f"BIST30_Dossier_{datetime.now().strftime('%Y%m%d_%H%M')}.md", mime="text/markdown")
@@ -608,13 +611,14 @@ if st.session_state.master_enriched is not None:
         st.markdown("### 📅 Agent 5: Komende 30-Dagen Macro Agenda")
         for ev in st.session_state.agenda:
             dl = (ev["date"] - datetime.now(timezone.utc).date()).days
+            # STRIKTE LINKS-UITLIJNING VOOR HTML OM SCROLLBALK TE BLOKKEREN
             st.markdown(f"""
-            <div class="clean-card news-card">
-                <div style="margin-bottom: 6px;"><span class="topic-pill">{'Vandaag!' if dl==0 else f'Over {dl} dagen'}</span></div>
-                <h4 class="card-title">📅 {ev['time_str']} - {ev['title']}</h4>
-                <hr>
-                <div class="card-text"><strong>🗣️ Wat gaat er gebeuren:</strong> {ev['jip']}</div>
-                <div class="card-text"><strong>📊 Impact:</strong> {ev['impact']}</div>
-                <a href="{ev['link']}" target="_blank" style="font-size: 13px; color: #2563eb; font-weight: bold; text-decoration: none;">🔗 Officiële kalender</a>
-            </div>
-            """, unsafe_allow_html=True)
+<div class="clean-card news-card">
+    <div style="margin-bottom: 6px;"><span class="topic-pill">{'Vandaag!' if dl==0 else f'Over {dl} dagen'}</span></div>
+    <h4 class="card-title">📅 {ev['time_str']} - {ev['title']}</h4>
+    <hr>
+    <div class="card-text"><strong>🗣️ Wat gaat er gebeuren:</strong> {ev['jip']}</div>
+    <div class="card-text"><strong>📊 Impact:</strong> {ev['impact']}</div>
+    <a href="{ev['link']}" target="_blank" style="font-size: 13px; color: #2563eb; font-weight: bold; text-decoration: none;">🔗 Officiële kalender</a>
+</div>
+""", unsafe_allow_html=True)
