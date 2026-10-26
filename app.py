@@ -111,7 +111,7 @@ dedup_strictness = st.sidebar.radio("🧠 Inhoudelijke Ontdubbeling:", ["Slim (1
 sort_mode = st.sidebar.radio("Sorteervolgorde in Master Hub:", ["Op Prioriteit (Nieuwste eerst)", "Puur op Datum"], index=0)
 
 # ==============================================================================
-# 🧠 NLP & SEMANTISCHE FILTERS 
+# 🧠 NLP & SEMANTISCHE FILTERS
 # ==============================================================================
 HARD_EXCLUDE_WORDS = [
     "futbol", "maç", "gol", "süper lig", "galatasaray", "fenerbahçe", "beşiktaş", "trabzonspor", "derbi", "hakem", "transfer", 
@@ -227,7 +227,7 @@ def translate_to_nl(text):
 def clean_html_text(raw_html):
     if not raw_html: return ""
     clean = html.unescape(re.sub(r'<[^>]+>', ' ', raw_html))
-    # CRUCIAAL: Vervang onzichtbare enters, tabs en backticks die de code-block render triggeren
+    # CRUCIAAL: Vervang onzichtbare enters en backticks om markdown-blokken met scrollbalk te voorkomen
     clean = clean.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').replace('`', "'")
     return re.sub(r'\s+', ' ', clean).strip()
 
@@ -283,7 +283,7 @@ def get_bist_technical_snapshots(tickers_tuple):
     return snapshots
 
 # ==============================================================================
-# 🧠 INTELLIGENCE & PRIORITEIT
+# 🧠 INTELLIGENCE: FINANCIËLE LOGICA & SECTOR IMPACT
 # ==============================================================================
 def detect_sector_and_badge(combined_text, mentioned_stocks):
     sectors = []
@@ -306,35 +306,37 @@ def build_jip_en_janneke_analysis(title_orig, title_nl, desc_nl, matched_tickers
     combined = f"{title_orig} {title_nl} {desc_nl}".lower()
     badge_html, sector_str, sentiment_type = detect_sector_and_badge(combined, matched_tickers)
 
-    # De échte inhoud van het nieuws als samenvatting (desc_nl), val terug op titel als desc leeg is
+    # Inhoud / Samenvatting: Neem de ECHTE rss-beschrijving over in plaats van een template
     actual_content = desc_nl if desc_nl and len(desc_nl) > 20 else title_nl
-    # Verwijder de titel uit de beschrijving als RSS hem dubbel meestuurt
     if actual_content.lower().startswith(title_nl.lower()):
         actual_content = actual_content[len(title_nl):].strip(" -|:")
-    if not actual_content: 
-        actual_content = title_nl
+    if not actual_content: actual_content = title_nl
 
-    # Bepaal de generieke economische impact voor de analyse-laag
+    # Economische Impact: Diepgaande financiële logica met 'waarom' en 'wie'
+    impact = ""
     if any(w in combined for w in ["brüt takas", "işlem yasağı", "tedbir", "bedelsiz"]):
         card_class = "scandal-card" if "yasağı" in combined else "positive-card"
-        impact = "Beïnvloedt direct de handel van het aandeel. Brüt takas droogt speculatie op, een 'bedelsiz' (splitsing) trekt vaak particulieren aan."
+        impact = "Dit grijpt direct in op de liquiditeit. Maatregelen zoals 'brüt takas' blokkeren daytrading en krediet, wat de speculatieve handel opdroogt en volatiliteit veroorzaakt. Bij een 'bedelsiz' (gratis aandelensplitsing) gebeurt het tegenovergestelde: de lagere nominale koers trekt massaal particuliere kopers aan."
     elif any(w in combined for w in ["fon", "spk", "tutuklama", "gözaltı", "kayyum", "soruşturma", "ev hapsi"]):
         card_class = "scandal-card"
-        impact = "Zorgt voor acute koersdruk en paniek bij de direct betrokken bedrijven. Institutioneel geld vlucht weg."
+        impact = "Creëert maximale onzekerheid. Grote (buitenlandse) institutionele fondsen hebben strikte compliance-regels en zullen hun posities bij juridische schandalen of staatsbeheer (kayyum) direct liquideren. Dit veroorzaakt acute koersdruk."
     elif any(w in combined for w in ["resmi gazete", "vergi", "atama"]):
         card_class = "news-card"
-        impact = "Nieuwe belastingen (zoals ÖTV) drukken direct de koersen van de geraakte sector. Steunmaatregelen stuwen ze."
+        impact = "Sectorspecifieke gevolgen afhankelijk van het besluit. Belastingverhogingen (zoals ÖTV) remmen direct de binnenlandse verkoop bij autofabrikanten (FROTO, TOASO) of witgoed (ARCLK). Benoemingen (zoals bij de TCMB) beïnvloeden direct het vertrouwen in grootbanken (AKBNK, GARAN, ISCTR, YKBNK)."
     elif any(w in combined for w in ["faiz", "tcmb", "enflasyon", "fed", "powell"]):
         card_class = "news-card"
-        impact = "Stijgende rentes maken lenen duurder, wat BIST 30 aandelen drukt. Verwachting van lagere rente stuwt Goud en Zilver."
+        impact = "De rentestand is de zwaartekracht van de beurs. Hoge of stijgende rentes maken financiering peperduur, wat zwaar leunende industriële bedrijven (zoals SASA, HEKTS) fundamenteel raakt. Banken profiteren kort, maar vrezen wanbetalingen. Dalende (Fed/TCMB) rentes zijn juist dé primaire brandstof voor de BIST 30, Goud en Zilver."
     elif any(w in combined for w in ["trump", "abd", "savaş", "israil", "rusya", "oorlog", "sanctie"]):
         card_class = "news-card"
-        impact = "Zorgt voor onrust op de beurs. Kapitaal vlucht naar 'veilige havens', waardoor Goud en Zilver scherp in prijs stijgen."
+        impact = "Risico-aversie. Kapitaal vlucht uit aandelen en naar 'veilige havens' (Goud/Zilver schieten omhoog). Luchtvaart (THYAO, PGSUS) presteert hier vaak zwak door angst voor duurdere kerosine (stijgende Brent olie) en minder toerisme. Defensie-aandelen (ASELSAN) en raffinaderijen (TUPRS) profiteren juist van deze spanningen."
     else:
         card_class = "news-card"
-        impact = "Geeft richting aan de dagelijkse handel. Specifieke bedrijfs- of macrocijfers bepalen de trend."
+        impact = "Bedrijfsspecifieke ontwikkelingen (zoals kwartaalcijfers of dividenden) sturen de fundamentele waardering, wat institutionele kopers aantrekt. Dit versterkt de marktleiderschap positie binnen de sector."
 
-    # Return de ECHTE inhoud in de plaats van de oude 'jip' variabele
+    # Koppel specifieke tickers aan de impact tekst als ze gevonden zijn
+    if matched_tickers:
+        impact += f" 👉 **Directe impact verwacht voor:** {', '.join(matched_tickers)}."
+
     return actual_content, impact, card_class, badge_html, sector_str, sentiment_type
 
 def calculate_article_priority_and_sort_key(item):
@@ -421,7 +423,6 @@ def enrich_articles_with_dutch_summaries(items, all_bist_codes):
         item["desc_nl"] = translate_to_nl(item["desc_orig"]) if item["lang"] == "tr" else item["desc_orig"]
         
         analyze_article_semantics(item, all_bist_codes)
-        # item["jip"] is nu de échte inhoud (actual_content)
         jip, imp, c_cls, bdg, sec, s_type = build_jip_en_janneke_analysis(item["title_orig"], item["title_nl"], item["desc_nl"], item.get("_matched_tickers", set()), item["category"])
         item.update({"jip": jip, "impact": imp, "card_class": c_cls, "badge_html": bdg, "sector_str": sec, "sentiment_type": s_type})
         calculate_article_priority_and_sort_key(item)
@@ -552,7 +553,7 @@ if st.session_state.master_enriched is not None:
     data = st.session_state.master_enriched
     tech = st.session_state.stock_tech_map
     
-    st.success(f"✅ Master Analyse voltooid! Van de {st.session_state.raw_count} berichten zijn er **{len(data)} unieke dossiers** gebouwd.")
+    st.success(f"✅ Master Analyse voltooid! Van de {st.session_state.raw_count} berichten zijn er **{len(data)} unieke dossiers** gebouwd (dankzij de semantische ontdubbeling).")
     
     with st.expander("🔎 Broncontrole: welke feeds werkten?", expanded=False):
         if st.session_state.source_status_snapshot:
