@@ -227,12 +227,11 @@ def translate_to_nl(text):
 def clean_html_text(raw_html):
     if not raw_html: return ""
     clean = html.unescape(re.sub(r'<[^>]+>', ' ', raw_html))
-    # CRUCIAAL: Vervang onzichtbare enters en backticks om markdown-blokken met scrollbalk te voorkomen
     clean = clean.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').replace('`', "'")
     return re.sub(r'\s+', ' ', clean).strip()
 
 # ==============================================================================
-# 📊 LIVE MARKTDATA & TECHNISCHE INDICATOREN
+# 📊 LIVE MARKTDATA, TECHNISCHE INDICATOREN & AGENT 6: KWARTAALCIJFERS AUDIT
 # ==============================================================================
 @st.cache_data(ttl=300, show_spinner=False)
 def get_live_market_snapshot():
@@ -258,25 +257,81 @@ def get_bist_technical_snapshots(tickers_tuple):
     snapshots = {}
     for code in tickers_tuple:
         try:
-            hist = yf.Ticker(f"{code}.IS").history(period="3mo")
-            if len(hist) >= 15:
-                curr, prev = float(hist["Close"].iloc[-1]), float(hist["Close"].iloc[-2])
+            t_obj = yf.Ticker(f"{code}.IS")
+            hist = t_obj.history(period="3mo")
+            if len(hist) >= 20:
+                curr = float(hist["Close"].iloc[-1])
+                prev = float(hist["Close"].iloc[-2])
                 chg_1d = ((curr - prev) / prev) * 100.0
+                
                 sma20 = float(hist["Close"].rolling(20).mean().iloc[-1])
                 sma50 = float(hist["Close"].rolling(50).mean().iloc[-1]) if len(hist)>=50 else None
+                
+                vol_curr = float(hist["Volume"].iloc[-1])
+                vol_sma20 = float(hist["Volume"].rolling(20).mean().iloc[-1]) if len(hist)>=20 else vol_curr
+                vol_ratio = (vol_curr / vol_sma20) * 100 if vol_sma20 > 0 else 100.0
                 
                 delta = hist["Close"].diff()
                 gain = delta.clip(lower=0).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
                 loss = (-delta.clip(upper=0)).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
                 rsi = 100.0 - (100.0 / (1.0 + (gain / loss))) if loss > 0 else 50.0
                 
-                w_h, w_l = float(hist["High"].tail(20).max()), float(hist["Low"].tail(20).min())
-                pivot, rng = (w_h + w_l + curr) / 3.0, max(w_h - w_l, curr * 0.02)
+                w_h = float(hist["High"].tail(20).max())
+                w_l = float(hist["Low"].tail(20).min())
+                pivot = (w_h + w_l + curr) / 3.0
+                rng = max(w_h - w_l, curr * 0.02)
                 
+                s1, s2, s3 = pivot - (0.382 * rng), pivot - (0.618 * rng), pivot - rng
+                r1, r2, r3 = pivot + (0.382 * rng), pivot + (0.618 * rng), pivot + rng
+                dist_s1 = ((curr - s1) / curr) * 100.0
+                history_prices = hist["Close"].tail(30).tolist()
+                
+                # AGENT 6: Kwartaalcijfers & Financiële Audit ophalen
+                q_rev, q_net, q_status, audit_verdict, audit_reason = "Onbekend", "Onbekend", "Nog niet bekend", "Neutraal / Afwachtend", "Onvoldoende historische kwartaaldata."
+                try:
+                    q_financials = t_obj.quarterly_financials
+                    if q_financials is not None and not q_financials.empty:
+                        cols_q = q_financials.columns[:2] # Laatste 2 kwartalen
+                        latest_col = cols_q[0]
+                        prev_col = cols_q[1] if len(cols_q) > 1 else None
+                        
+                        # Zoek omzet & nettowinst rijen
+                        rev_rows = [r for r in q_financials.index if any(k in r.lower() for k in ["total revenue", "revenue"])]
+                        net_rows = [r for r in q_financials.index if any(k in r.lower() for k in ["net income", "net profit"])]
+                        
+                        rev_val = q_financials.loc[rev_rows[0], latest_col] if rev_rows else None
+                        net_val = q_financials.loc[net_rows[0], latest_col] if net_rows else None
+                        
+                        prev_net_val = q_financials.loc[net_rows[0], prev_col] if net_rows and prev_col else None
+                        
+                        if rev_val is not None: q_rev = f"₺{rev_val:,.0f}".replace(",", ".")
+                        if net_val is not None: q_net = f"₺{net_val:,.0f}".replace(",", ".")
+                        q_status = f"Bekend (Laatste kwartaal: {str(latest_col.date())})"
+                        
+                        # AGENT 6 AUTONOME AUDIT LOGICA (Controle of het positief/negatief is)
+                        if net_val is not None and prev_net_val is not None and prev_net_val != 0:
+                            net_growth = ((net_val - prev_net_val) / abs(prev_net_val)) * 100.0
+                            if net_growth > 5.0:
+                                audit_verdict = "🟢 Positief (Sterke Winstgroei)"
+                                audit_reason = f"Het laatste kwartaal laat een nettowinstgroei zien van {net_growth:+.1f}% ten opzichte van het vorige kwartaal. Dit duidt op operationele kracht."
+                            elif net_growth < -5.0:
+                                audit_verdict = "🔴 Negatief (Winstkrimp)"
+                                audit_reason = f"Het laatste kwartaal toont een winstdaling van {net_growth:+.1f}% ten opzichte van het vorige kwartaal. Dit kan koersdruk geven."
+                            else:
+                                audit_verdict = "⚖️ Neutraal (Stabiel / Vlak)"
+                                audit_reason = f"De nettowinst bleef nagenoeg stabiel ({net_growth:+.1f}%). Geen extreme verrassingen in de boeken."
+                except Exception as ex:
+                    q_status = f"Fout bij ophalen: {str(ex)[:50]}"
+
                 snapshots[code] = {
                     "price": round(curr, 2), "change": round(chg_1d, 2), "rsi": round(float(rsi), 1),
                     "sma20": round(sma20, 2), "sma50": round(sma50, 2) if sma50 else None,
-                    "s1": round(pivot - (0.382 * rng), 2), "r1": round(pivot + (0.382 * rng), 2),
+                    "s1": round(s1, 2), "s2": round(s2, 2), "s3": round(s3, 2),
+                    "r1": round(r1, 2), "r2": round(r2, 2), "r3": round(r3, 2),
+                    "dist_s1": round(dist_s1, 2), "vol_ratio": round(vol_ratio, 1),
+                    "history": history_prices,
+                    "q_rev": q_rev, "q_net": q_net, "q_status": q_status,
+                    "audit_verdict": audit_verdict, "audit_reason": audit_reason,
                     "trend": "📈 Boven SMA20" if curr >= sma20 else "📉 Onder SMA20"
                 }
         except: pass
@@ -306,36 +361,33 @@ def build_jip_en_janneke_analysis(title_orig, title_nl, desc_nl, matched_tickers
     combined = f"{title_orig} {title_nl} {desc_nl}".lower()
     badge_html, sector_str, sentiment_type = detect_sector_and_badge(combined, matched_tickers)
 
-    # Inhoud / Samenvatting: Neem de ECHTE rss-beschrijving over in plaats van een template
     actual_content = desc_nl if desc_nl and len(desc_nl) > 20 else title_nl
     if actual_content.lower().startswith(title_nl.lower()):
         actual_content = actual_content[len(title_nl):].strip(" -|:")
     if not actual_content: actual_content = title_nl
 
-    # Economische Impact: Diepgaande financiële logica met 'waarom' en 'wie'
     impact = ""
     if any(w in combined for w in ["brüt takas", "işlem yasağı", "tedbir", "bedelsiz"]):
         card_class = "scandal-card" if "yasağı" in combined else "positive-card"
-        impact = "Dit grijpt direct in op de liquiditeit. Maatregelen zoals 'brüt takas' blokkeren daytrading en krediet, wat de speculatieve handel opdroogt en volatiliteit veroorzaakt. Bij een 'bedelsiz' (gratis aandelensplitsing) gebeurt het tegenovergestelde: de lagere nominale koers trekt massaal particuliere kopers aan."
+        impact = "Dit grijpt direct in op de liquiditeit en handelsstructuur. Maatregelen zoals 'brüt takas' blokkeren daytrading en kredietverstrekking, wat speculatieve handel direct opdroogt en tijdelijke koersdruk geeft. Een goedgekeurde 'bedelsiz' (gratis aandelensplitsing) verlaagt de drempel per aandeel, wat particuliere beleggers aantrekt en de liquiditeit juist stimuleert."
     elif any(w in combined for w in ["fon", "spk", "tutuklama", "gözaltı", "kayyum", "soruşturma", "ev hapsi"]):
         card_class = "scandal-card"
-        impact = "Creëert maximale onzekerheid. Grote (buitenlandse) institutionele fondsen hebben strikte compliance-regels en zullen hun posities bij juridische schandalen of staatsbeheer (kayyum) direct liquideren. Dit veroorzaakt acute koersdruk."
+        impact = "Creëert maximale onzekerheid en reputatieschade. Grote institutionele en buitenlandse fondsen hebben strikte compliance-regels; bij juridische schandalen of staatsbeheer (kayyum) haken zij direct af. Dit resulteert in paniekverkoop en acute verkoopdruk."
     elif any(w in combined for w in ["resmi gazete", "vergi", "atama"]):
         card_class = "news-card"
-        impact = "Sectorspecifieke gevolgen afhankelijk van het besluit. Belastingverhogingen (zoals ÖTV) remmen direct de binnenlandse verkoop bij autofabrikanten (FROTO, TOASO) of witgoed (ARCLK). Benoemingen (zoals bij de TCMB) beïnvloeden direct het vertrouwen in grootbanken (AKBNK, GARAN, ISCTR, YKBNK)."
+        impact = "Heeft directe sectorspecifieke consequenties. Fiscale aanscherpingen (zoals ÖTV-verhogingen) remmen de binnenlandse afzet van duurzame goederen, wat drukt op automotive (FROTO, TOASO) en witgoed (ARCLK). Benoemingen binnen het monetaire of economische apparaat sturen direct het beleggersvertrouwen in de grote grootbanken (AKBNK, GARAN, ISCTR, YKBNK)."
     elif any(w in combined for w in ["faiz", "tcmb", "enflasyon", "fed", "powell"]):
         card_class = "news-card"
-        impact = "De rentestand is de zwaartekracht van de beurs. Hoge of stijgende rentes maken financiering peperduur, wat zwaar leunende industriële bedrijven (zoals SASA, HEKTS) fundamenteel raakt. Banken profiteren kort, maar vrezen wanbetalingen. Dalende (Fed/TCMB) rentes zijn juist dé primaire brandstof voor de BIST 30, Goud en Zilver."
+        impact = "De rente fungeert als de zwaartekracht voor de aandelenmarkt. Hoge rentes maken vreemd vermogen peperduur, wat kapitaalintensieve of zwaar belendende ondernemingen (zoals SASA, HEKTS) fundamenteel raakt. Banken profiteren tijdelijk van marges, maar vrezen kredietrisico's. Toekomstige renteverlagingen zijn daarentegen de belangrijkste brandstof voor een brede rally in de BIST 30 en edelmetalen."
     elif any(w in combined for w in ["trump", "abd", "savaş", "israil", "rusya", "oorlog", "sanctie"]):
         card_class = "news-card"
-        impact = "Risico-aversie. Kapitaal vlucht uit aandelen en naar 'veilige havens' (Goud/Zilver schieten omhoog). Luchtvaart (THYAO, PGSUS) presteert hier vaak zwak door angst voor duurdere kerosine (stijgende Brent olie) en minder toerisme. Defensie-aandelen (ASELSAN) en raffinaderijen (TUPRS) profiteren juist van deze spanningen."
+        impact = "Veroorzaakt wereldwijde risico-aversie. Beleggers vluchten uit risicovolle opkomende markten en zoeken 'veilige havens', waardoor Goud en Zilver scherp oplopen. Luchtvaartmaatschappijen (THYAO, PGSUS) worden dubbel geraakt door duurdere kerosine (stijgende Brent olieprijzen) en reisonrust. Defensiebedrijven (ASELSAN) en exportgerichte energieproducenten profiteren juist."
     else:
         card_class = "news-card"
-        impact = "Bedrijfsspecifieke ontwikkelingen (zoals kwartaalcijfers of dividenden) sturen de fundamentele waardering, wat institutionele kopers aantrekt. Dit versterkt de marktleiderschap positie binnen de sector."
+        impact = "Bedrijfsspecifieke prestaties of macro-indicatoren sturen de fundamentele waardering van de markt. Sterke resultaten of nieuwe investeringen trekken institutionele kopers aan, wat de marktleiders binnen de BIST 30 versterkt."
 
-    # Koppel specifieke tickers aan de impact tekst als ze gevonden zijn
     if matched_tickers:
-        impact += f" 👉 **Directe impact verwacht voor:** {', '.join(matched_tickers)}."
+        impact += f" 👉 **Direct geraakte fondsen:** {', '.join(matched_tickers)}."
 
     return actual_content, impact, card_class, badge_html, sector_str, sentiment_type
 
@@ -354,7 +406,7 @@ def calculate_article_priority_and_sort_key(item):
     return prio
 
 # ==============================================================================
-# 📡 RSS HARVESTING & ORIGINELE SEMANTISCHE ONTDUBBELING
+# 📡 RSS HARVESTING & ONTDUBBELING
 # ==============================================================================
 SOURCE_STATUS = {}
 def record_source(name, status, count=0, error=""): SOURCE_STATUS[name] = {"status": status, "count": int(count), "error": str(error)[:240]}
@@ -473,7 +525,7 @@ def deduplicate_by_semantic_content(enriched_list, max_mode=False):
     return unique_items
 
 # ==============================================================================
-# 📅 AGENT 5: 30-DAGEN AGENDA (8 Events)
+# 📅 AGENT 5: 30-DAGEN AGENDA
 # ==============================================================================
 def get_upcoming_30_day_agenda():
     return [
@@ -553,13 +605,20 @@ if st.session_state.master_enriched is not None:
     data = st.session_state.master_enriched
     tech = st.session_state.stock_tech_map
     
-    st.success(f"✅ Master Analyse voltooid! Van de {st.session_state.raw_count} berichten zijn er **{len(data)} unieke dossiers** gebouwd (dankzij de semantische ontdubbeling).")
+    st.success(f"✅ Master Analyse voltooid! Van de {st.session_state.raw_count} berichten zijn er **{len(data)} unieke dossiers** gebouwd.")
     
     with st.expander("🔎 Broncontrole: welke feeds werkten?", expanded=False):
         if st.session_state.source_status_snapshot:
             st.dataframe(pd.DataFrame([{"Bron": k, "Status": v["status"], "Berichten": v["count"], "Fout": v.get("error","")} for k,v in st.session_state.source_status_snapshot.items()]), use_container_width=True, hide_index=True)
             
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([f"🌐 Agent 1: Master Hub ({len(data)})", "🕵️‍♂️ Agent 2: Koers-Matrix", "💡 Agent 3: Advies", "⚖️ Agent 4: Risk", f"📅 Agent 5: Agenda ({len(st.session_state.agenda)})"])
+    tab1, tab2, tab6, tab3, tab4, tab5 = st.tabs([
+        f"🌐 Agent 1: Master Hub ({len(data)})", 
+        "🕵️‍♂️ Agent 2: Koers-Matrix", 
+        "📊 Agent 6: Kwartaalcijfers & AI-Audit", 
+        "💡 Agent 3: Advies", 
+        "⚖️ Agent 4: Risk", 
+        f"📅 Agent 5: Agenda ({len(st.session_state.agenda)})"
+    ])
     
     with tab1:
         st.markdown("### 🌐 Agent 1: Master News Hub")
@@ -590,7 +649,6 @@ if st.session_state.master_enriched is not None:
                 links = " · ".join([f"<a href='{l['link']}' target='_blank'>{l['name']}</a>" for l in item["extra_source_links"][:5]])
                 also = f"<div class='card-subtitle'>🧠 <em>Zelfde inhoud ook gemeld door: {links} (automatisch samengevoegd).</em></div>"
             
-            # HTML String opbouwen en enters strippen ter preventie van markdown blokken
             html_card = f"""
             <div class="clean-card {item['card_class']}">
                 <div style="margin-bottom: 8px;">
@@ -604,28 +662,49 @@ if st.session_state.master_enriched is not None:
                 <div style="margin-bottom: 8px;">{chips}</div>
                 <hr>
                 <div class="card-text"><strong>📰 Inhoud / Samenvatting:</strong> {item['jip']}</div>
-                <div class="card-text"><strong>📊 Economische impact:</strong> {item['impact']}</div>
+                <div class="card-text"><strong>📊 Economische impact & Logica:</strong> {item['impact']}</div>
                 <div style="margin-top: 10px;"><a href="{item['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8; text-decoration: none;">🔗 Lees originele bron</a></div>
             </div>
             """
-            
             st.markdown(html_card.replace('\n', ' '), unsafe_allow_html=True)
             export_lines.append(f"## #{idx} [{item['priority_label']}] {item['title_nl']} ({item['date_str']})\n- Impact: {item['impact']}\n- Bron: {item['link']}\n\n")
 
         if filtered_data: st.download_button("📥 Download Rapport (.md)", "\n".join(export_lines), file_name=f"BIST30_Dossier_{datetime.now().strftime('%Y%m%d_%H%M')}.md", mime="text/markdown")
             
     with tab2:
-        st.markdown("### 🕵️‍♂️ Agent 2: Live Technische Koers-Matrix")
-        if tech: st.dataframe(pd.DataFrame([{"Ticker": k, "Koers": v.get("price"), "Mutatie %": v.get("change"), "RSI": v.get("rsi"), "SMA 20": v.get("sma20"), "Steun S1": v.get("s1"), "Weerstand R1": v.get("r1"), "Trend": v.get("trend")} for k, v in tech.items()]), use_container_width=True, hide_index=True)
-            
-    with tab3: st.markdown("### 💡 Agent 3: Beleggingsadvies\n- Vermijd Prio-1 Schandaalfondsen.\n- Gebruik de RSI & Steun (S1) data uit de kaarten voor instapmomenten.")
+        st.markdown("### 🕵️‍♂️ Agent 2: Geavanceerde Technische Koers-Matrix (BIST 30)")
+        if tech:
+            df_tech = pd.DataFrame([
+                {
+                    "Ticker": k, "Koers (₺)": v.get("price"), "Mutatie %": v.get("change"), 
+                    "RSI": v.get("rsi"), "Vol. Spurt %": v.get("vol_ratio"),
+                    "Afstand S1 %": v.get("dist_s1"), "Steun S1": v.get("s1"), "Steun S2": v.get("s2"), "Steun S3": v.get("s3"),
+                    "Weerstand R1": v.get("r1"), "Weerstand R2": v.get("r2"), "Weerstand R3": v.get("r3"),
+                    "Trend": v.get("trend"), "30d Grafiek": v.get("history")
+                } for k, v in tech.items()
+            ])
+            st.dataframe(df_tech, column_config={"30d Grafiek": st.column_config.LineChartColumn("30-Daagse Trend", width="medium"), "Koers (₺)": st.column_config.NumberColumn(format="₺%.2f")}, use_container_width=True, hide_index=True)
+
+    with tab6:
+        st.markdown("### 📊 Agent 6: Kwartaalcijfers & AI-Waarderingsauditor")
+        st.markdown("Dit overzicht toont de laatst bekende kwartaalomzet, nettowinst en een autonome AI-audit die oordeelt of de cijfers positief of negatief zijn voor het aandeel.")
+        if tech:
+            df_q = pd.DataFrame([
+                {
+                    "Ticker": k, "Status Kwartaal": v.get("q_status"), 
+                    "Laatste Omzet": v.get("q_rev"), "Laatste Nettowinst": v.get("q_net"),
+                    "AI Oordeel": v.get("audit_verdict"), "Audit Onderbouwing": v.get("audit_reason")
+                } for k, v in tech.items()
+            ])
+            st.dataframe(df_q, use_container_width=True, hide_index=True)
+
+    with tab3: st.markdown("### 💡 Agent 3: Beleggingsadvies\n- Vermijd Prio-1 Schandaalfondsen.\n- Combineer de RSI- en kwartaalcijfers uit Agent 6 voor fundamenteel sterke instapmomenten.")
     with tab4: st.markdown(f"### ⚖️ Agent 4: Risico-Audit\nLet op de {sum(1 for x in data if x['priority_level'] == 1)} Prio-1 schandalen en het macro-klimaat.")
     
     with tab5:
         st.markdown("### 📅 Agent 5: Komende 30-Dagen Macro Agenda")
         for ev in st.session_state.agenda:
             dl = (ev["date"] - datetime.now(timezone.utc).date()).days
-            
             html_agenda = f"""
             <div class="clean-card news-card">
                 <div style="margin-bottom: 6px;"><span class="topic-pill">{'Vandaag!' if dl==0 else f'Over {dl} dagen'}</span></div>
