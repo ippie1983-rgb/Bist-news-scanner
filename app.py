@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 # ⚙️ PAGINA CONFIGURATIE & SCHONE CSS (Geen Scrollbalken)
 # ==============================================================================
 st.set_page_config(
-    page_title="BIST & Turkse Economie Master Scanner",
+    page_title="BIST 30 & Turkse Economie Master Scanner",
     page_icon="🇹🇷",
     layout="wide"
 )
@@ -62,62 +62,38 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p style="font-size: 28px; font-weight: bold; color: #1E3A8A; margin-bottom: 0;">🇹🇷 BIST & Turkse Economie Master Scanner</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size: 28px; font-weight: bold; color: #1E3A8A; margin-bottom: 0;">🇹🇷 BIST 30 & Turkse Economie Master Scanner</p>', unsafe_allow_html=True)
 st.markdown("Gecombineerde **Master News Hub** met **Turkse nieuwsfeeds + Google News**, **voorzichtige ontdubbeling**, **live sentiment barometer**, **vrije zoekfunctie** en de **30-dagen Macro-Agenda**.")
 
 # ==============================================================================
-# 🗂 BIST 100 LIJST & CONFIGURATIE (Intact gebleven)
+# 🗂 BIST 30 LIJST & CONFIGURATIE
 # ==============================================================================
-BIST_INDEX_OPTION = "📈 BIST 100 Index (Algemeen & Brede Markt)"
+BIST_INDEX_OPTION = "📈 BIST 30 Index (Brede Markt)"
 
-BIST_100_STOCKS = [
-    "AEFES (Anadolu Efes)", "AGHOL (Anadolu Grubu Holding)", "AGROT (Agrotech)", "AHGAZ (Ahlatcı Doğalgaz)",
-    "AKBNK (Akbank)", "AKCNS (Akçansa)", "AKFGY (Akfen GYO)", "AKFYE (Akfen Yenilenebilir Enerji)",
-    "AKSA (Aksa Akrilik)", "AKSEN (Aksa Enerji)", "ALARK (Alarko Holding)", "ALBRK (Albaraka Türk)",
-    "ALFAS (Alfa Solar Enerji)", "ALTNY (Altınay Savunma)", "ANHYT (Anadolu Hayat Emeklilik)", "ANSGR (Anadolu Sigorta)",
-    "ARCLK (Arçelik)", "ARDYZ (ARD Bilişim)", "ASELS (Aselsan)", "ASTOR (Astor Enerji)",
-    "BERA (Bera Holding)", "BFREN (Bosch Fren)", "BIENY (Bien Yapı)", "BIMAS (Bim Mağazalar)",
-    "BINHO (1000 Yatırımlar Holding)", "BRSAN (Borusan Boru)", "BRYAT (Borusan Yatırım)", "BTCIM (Batıçim)",
-    "CANTE (Çan2 Termik)", "CCOLA (Coca-Cola İçecek)", "CIMSA (Çimsa)", "CLEBI (Çelebi Hava Servisi)",
-    "CWENE (CW Enerji)", "DEVA (Deva Holding)", "DOAS (Doğuş Otomotiv)", "DOHOL (Doğan Holding)",
-    "ECILC (Eczacıbaşı İlaç)", "ECZYT (Eczacıbaşı Yatırım)", "EGEEN (Ege Endüstri)", "EKGYO (Emlak Konut GYO)",
-    "ENERY (Enerya Enerji)", "ENJSA (Enerjisa Enerji)", "ENKAI (Enka İnşaat)", "EREGL (Erdemir)",
-    "EUPWR (Europower Enerji)", "EUREN (Europen Endüstri)", "FROTO (Ford Otosan)", "GARAN (Garanti BBVA)",
-    "GESAN (Girişim Elektrik)", "GOLTS (Göltaş Çimento)", "GUBRF (Gübre Fabrikaları)", "GWIND (Galata Wind)",
-    "HALKB (Halkbank)", "HEKTS (Hektaş)", "IMASM (İmaş Makina)", "IPEKE (İpek Doğal Enerji)",
-    "ISCTR (İş Bankası C)", "ISDMR (İskenderun Demir Çelik)", "ISGYO (İş GYO)", "ISMEN (İş Yatırım)",
-    "KAYSE (Kayseri Şeker)", "KCAER (Kocaer Çelik)", "KCHOL (Koç Holding)", "KLSER (Kaleseramik)",
-    "KONTR (Kontrolmatik)", "KONYA (Konya Çimento)", "KORDS (Kordsa)", "KOZAA (Koza Anadolu Metal)",
-    "KOZAL (Koza Altın)", "KRDMD (Kardemir D)", "KTLEV (Katılımevim)", "LMKDC (Limak Doğu Anadolu Çimento)",
-    "MAVI (Mavi Giyim)", "MGROS (Migros)", "MIATK (Mia Teknoloji)", "OBAMS (Oba Makarnacılık)",
-    "ODAS (Odaş Elektrik)", "OTKAR (Otokar)", "OYAKC (Oyak Çimento)", "PASEU (Pasifik Eurasia Lojistik)",
-    "PEKGY (Peker GYO)", "PETKM (Petkim)", "PGSUS (Pegasus)", "QUAGR (Qua Granite)",
-    "REEDR (Reeder Teknoloji)", "SAHOL (Sabancı Holding)", "SASA (Sasa Polyester)", "SDTTR (SDT Uzay en Savunma)",
-    "SISE (Şişecam)", "SKBNK (Şekerbank)", "SMRTG (Smart Güneş Enerjisi)", "SOKM (Şok Marketler)",
-    "TABGD (TAB Gıda)", "TAVHL (TAV Havalimanları)", "TCELL (Turkcell)", "THYAO (Turkish Airlines)",
-    "TKFEN (Tekfen Holding)", "TOASO (Tofaş Oto)", "TTKOM (Türk Telekom)", "TUPRS (Tüpraş)",
-    "TURSG (Türkiye Sigorta)", "ULKER (Ülker Bisküvi)", "VAKBN (VakıfBank)", "VESBE (Vestel Beyaz Eşya)",
-    "VESTL (Vestel)", "YEOTK (YEO Teknoloji)", "YKBNK (Yapı Kredi)", "YYLGD (Yayla Agro Gıda)",
-    "ZOREN (Zorlu Enerji)"
+BIST_30_STOCKS = [
+    "AKBNK (Akbank)", "ALARK (Alarko Holding)", "ASELS (Aselsan)", "ASTOR (Astor Enerji)", 
+    "BIMAS (Bim Mağazalar)", "BRSAN (Borusan Boru)", "CCOLA (Coca-Cola İçecek)", "ENKAI (Enka İnşaat)", 
+    "EREGL (Erdemir)", "FROTO (Ford Otosan)", "GARAN (Garanti BBVA)", "GUBRF (Gübre Fabrikaları)", 
+    "HEKTS (Hektaş)", "ISCTR (İş Bankası C)", "KCHOL (Koç Holding)", "KONTR (Kontrolmatik)", 
+    "KOZAA (Koza Anadolu Metal)", "KOZAL (Koza Altın)", "KRDMD (Kardemir D)", "ODAS (Odaş Elektrik)", 
+    "OYAKC (Oyak Çimento)", "PETKM (Petkim)", "PGSUS (Pegasus)", "SAHOL (Sabancı Holding)", 
+    "SASA (Sasa Polyester)", "SISE (Şişecam)", "TCELL (Turkcell)", "THYAO (Turkish Airlines)", 
+    "TOASO (Tofaş Oto)", "TUPRS (Tüpraş)", "YKBNK (Yapı Kredi)"
 ]
 
-ALL_SIDEBAR_OPTIONS = [BIST_INDEX_OPTION] + BIST_100_STOCKS
+ALL_SIDEBAR_OPTIONS = [BIST_INDEX_OPTION] + BIST_30_STOCKS
 
 COMPANY_TO_TICKER_MAP = {
     "türk hava yolları": "THYAO", "turkish airlines": "THYAO", "aselsan": "ASELS", "koç holding": "KCHOL", 
     "koc holding": "KCHOL", "akbank": "AKBNK", "garanti bbva": "GARAN", "garanti bankası": "GARAN",
     "tüpraş": "TUPRS", "tupras": "TUPRS", "bim mağazalar": "BIMAS", "erdemir": "EREGL", "ereğli demir": "EREGL", 
-    "şişecam": "SISE", "sisecam": "SISE", "sasa polyester": "SASA", "emlak konut": "EKGYO", "yapı kredi": "YKBNK", 
-    "iş bankası": "ISCTR", "petkim": "PETKM", "pegasus": "PGSUS", "tofaş": "TOASO", "arçelik": "ARCLK",
-    "enka inşaat": "ENKAI", "kardemir": "KRDMD", "türk telekom": "TTKOM", "turkcell": "TCELL", "ford otosan": "FROTO", 
-    "migros": "MGROS", "şok market": "SOKM", "astor enerji": "ASTOR", "enerjisa": "ENJSA", "sabancı holding": "SAHOL", 
-    "oyak çimento": "OYAKC", "hektaş": "HEKTS", "odaş": "ODAS", "girişim elektrik": "GESAN", "kontrolmatik": "KONTR",
-    "halkbank": "HALKB", "vakıfbank": "VAKBN", "alarko": "ALARK", "borusan": "BRSAN", "doğuş otomotiv": "DOAS", 
-    "doğan holding": "DOHOL", "gübre fabrikaları": "GUBRF", "koza altın": "KOZAL", "mavi giyim": "MAVI",
-    "otokar": "OTKAR", "tav havalimanları": "TAVHL", "tekfen": "TKFEN", "ülker": "ULKER", "vestel": "VESTL", 
-    "zorlu enerji": "ZOREN", "anadolu efes": "AEFES", "coca-cola içecek": "CCOLA", "çimsa": "CIMSA",
-    "deva holding": "DEVA", "eczacıbaşı": "ECILC", "smart güneş": "SMRTG", "cw enerji": "CWENE", 
-    "europower": "EUPWR", "reeder": "REEDR", "tab gıda": "TABGD", "türkiye sigorta": "TURSG", "katılımevim": "KTLEV"
+    "şişecam": "SISE", "sisecam": "SISE", "sasa polyester": "SASA", "yapı kredi": "YKBNK", 
+    "iş bankası": "ISCTR", "petkim": "PETKM", "pegasus": "PGSUS", "tofaş": "TOASO",
+    "enka inşaat": "ENKAI", "kardemir": "KRDMD", "turkcell": "TCELL", "ford otosan": "FROTO", 
+    "astor enerji": "ASTOR", "sabancı holding": "SAHOL", "oyak çimento": "OYAKC", "hektaş": "HEKTS", 
+    "odaş": "ODAS", "kontrolmatik": "KONTR", "alarko": "ALARK", "borusan": "BRSAN", 
+    "gübre fabrikaları": "GUBRF", "koza altın": "KOZAL", "koza anadolu": "KOZAA",
+    "coca-cola içecek": "CCOLA"
 }
 
 DIRECT_TURKISH_RSS_FEEDS = [
@@ -135,21 +111,20 @@ DIRECT_TURKISH_RSS_FEEDS = [
 # ==============================================================================
 st.sidebar.header("⚙️ Systeem & Inhouds-Filter")
 
-custom_search_query = st.sidebar.text_input("🔎 Vrije Live Zoekopdracht (Optioneel):", value="", placeholder="Bijv. Tera, IEYHO, İmamoğlu...")
+custom_search_query = st.sidebar.text_input("🔎 Vrije Live Zoekopdracht (Optioneel):", value="", placeholder="Bijv. İmamoğlu, Trump...")
 st.sidebar.markdown("---")
 
-select_all_bist = st.sidebar.checkbox("Selecteer ALLE watchlist-aandelen tegelijk", value=False)
+select_all_bist = st.sidebar.checkbox("Selecteer ALLE BIST 30 aandelen tegelijk", value=False)
 if select_all_bist:
     default_selection = ALL_SIDEBAR_OPTIONS
 else:
     default_selection = [BIST_INDEX_OPTION, "THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)", "AKBNK (Akbank)", "GARAN (Garanti BBVA)", "TUPRS (Tüpraş)"]
 
-selected_tickers = st.sidebar.multiselect("🎯 Kies BIST 100 Index en/of aandelen:", options=ALL_SIDEBAR_OPTIONS, default=default_selection)
+selected_tickers = st.sidebar.multiselect("🎯 Kies BIST 30 Index en/of aandelen:", options=ALL_SIDEBAR_OPTIONS, default=default_selection)
 max_days_slider = st.sidebar.slider("Nieuws ouderdom (dagen):", min_value=1, max_value=5, value=3)
 include_direct_newspaper_rss = st.sidebar.checkbox("⚡ Inclusief rechtstreekse Turkse kranten-feeds", value=True)
 
 dedup_strictness = st.sidebar.radio("🧠 Inhoudelijke Ontdubbeling:", ["Slim (1 kaart per uniek verhaal)", "Maximaal (Groepeer per thema)"], index=0)
-sort_mode = st.sidebar.radio("Sorteervolgorde in Master Hub:", ["Op Prioriteit (Nieuwste eerst)", "Puur op Datum"], index=0)
 
 # ==============================================================================
 # 🧠 NLP & SEMANTISCHE FILTERS
@@ -202,7 +177,7 @@ def clean_html_text(raw_html):
 # ==============================================================================
 @st.cache_data(ttl=300, show_spinner=False)
 def get_live_market_snapshot():
-    symbols = {"BIST 100": "XU100.IS", "USD/TRY": "USDTRY=X", "Goud Ons ($)": "GC=F", "Zilver Ons ($)": "SI=F", "Brent Olie ($)": "BZ=F", "VIX (Angst)": "^VIX"}
+    symbols = {"BIST 30": "XU030.IS", "BIST 100": "XU100.IS", "USD/TRY": "USDTRY=X", "Goud Ons ($)": "GC=F", "Zilver Ons ($)": "SI=F", "Brent Olie ($)": "BZ=F", "VIX (Angst)": "^VIX"}
     data = {}
     for name, sym in symbols.items():
         try:
@@ -258,7 +233,7 @@ def detect_sector_and_badge(combined_text, mentioned_stocks):
     if any(w in combined_text for w in ["savunma", "asels", "oorlog", "navo"]): sectors.append("🛡️ Defensie")
     if any(w in combined_text for w in ["petrol", "enerji", "tuprs", "astor", "olie"]): sectors.append("⚡ Energie")
     if mentioned_stocks: sectors.insert(0, f"🎯 Aandelen: {', '.join(sorted(mentioned_stocks))}")
-    if not sectors: sectors.append("📈 Brede BIST 100 Markt & Macro")
+    if not sectors: sectors.append("📈 Brede BIST 30 Markt & Macro")
     
     if any(w in combined_text for w in ["tutuklama", "gözaltı", "soruşturma", "ceza", "işlem yasağı", "kayyum"]):
         return '<span class="badge-pill badge-neg">🔴 HOOG RISICO / SCHANDAAL</span>', " · ".join(sectors[:3]), "neg"
@@ -283,13 +258,13 @@ def build_jip_en_janneke_analysis(title_orig, title_nl, desc_nl, matched_tickers
         impact = "Nieuwe belastingen (zoals ÖTV) drukken de koersen van de geraakte sector. Steunmaatregelen stuwen ze."
     elif any(w in combined for w in ["faiz", "tcmb", "enflasyon", "fed", "powell"]):
         card_class, jip = "news-card", "Cruciale updates over inflatie en het rentebeleid van centrale banken."
-        impact = "Hoge of stijgende rentes maken lenen duurder, wat BIST 100 aandelen drukt. Verwachting van lagere rente is dé brandstof voor Goud en Zilver."
+        impact = "Hoge of stijgende rentes maken lenen duurder, wat BIST 30 aandelen drukt. Verwachting van lagere rente is dé brandstof voor Goud en Zilver."
     elif any(w in combined for w in ["trump", "abd", "savaş", "israil", "rusya", "oorlog", "sanctie"]):
         card_class, jip = "news-card", "Geopolitieke spanningen, oorlog of internationale sancties."
-        impact = "Zorgt voor paniek op de BIST 100. Kapitaal vlucht direct naar 'veilige havens', waardoor Goud en Zilver scherp in prijs stijgen."
+        impact = "Zorgt voor paniek op de BIST 30. Kapitaal vlucht direct naar 'veilige havens', waardoor Goud en Zilver scherp in prijs stijgen."
     else:
         card_class, jip = "news-card", "Actueel economisch of bedrijfsnieuws (KAP meldingen of macro-data)."
-        impact = "Geeft richting aan de dagelijkse handel. Positieve cijfers ondersteunen het vertrouwen."
+        impact = "Geeft richting aan de dagelijkse handel. Positieve cijfers ondersteunen het vertrouwen in de zwaargewichten."
 
     return jip, impact, card_class, badge_html, sector_str, sentiment_type
 
@@ -387,7 +362,7 @@ def get_upcoming_30_day_agenda():
         {"date": datetime(2026, 10, 28).date(), "title": "🇺🇸 Fed Rentebesluit & Powell", "jip": "De Amerikaanse centrale bank maakt haar rentebesluit bekend.", "impact": "Hint op lagere rente is direct positief voor Goud en Zilver.", "link": "https://www.federalreserve.gov/"},
         {"date": datetime(2026, 10, 29).date(), "title": "🇹🇷 Cumhuriyet Bayramı", "jip": "Nationale feestdag. Borsa İstanbul is gesloten.", "impact": "Handelaren verkopen vooraf vaak aandelen om kredietrente te besparen.", "link": "https://www.borsaistanbul.com/"},
         {"date": datetime(2026, 11, 3).date(), "title": "🇹🇷 TÜİK Inflatiecijfers", "jip": "Publicatie van de officiële Turkse consumentenprijzen.", "impact": "Lage inflatie stuwt bankaandelen omhoog.", "link": "https://www.tuik.gov.tr/"},
-        {"date": datetime(2026, 11, 19).date(), "title": "🇹🇷 TCMB Rentebesluit", "jip": "De Turkse Centrale Bank bepaalt de nieuwe rente.", "impact": "Cruciaal voor de Lira, Gram Goud en de hele BIST 100 Index.", "link": "https://www.tcmb.gov.tr/"}
+        {"date": datetime(2026, 11, 19).date(), "title": "🇹🇷 TCMB Rentebesluit", "jip": "De Turkse Centrale Bank bepaalt de nieuwe rente.", "impact": "Cruciaal voor de Lira, Gram Goud en de hele BIST 30 Index.", "link": "https://www.tcmb.gov.tr/"}
     ]
 
 # ==============================================================================
@@ -401,7 +376,7 @@ st.markdown("---")
 
 if "master_enriched" not in st.session_state: st.session_state.master_enriched = None
 
-if st.button("🚀 Start Volledige Master Analyse (Inclusief Ontdubbeling)", type="primary"):
+if st.button("🚀 Start Volledige Master Analyse (BIST 30 Focus)", type="primary"):
     tickers_clean = [t.split(" ")[0] for t in selected_tickers if t != BIST_INDEX_OPTION]
     
     with st.spinner("📡 Ophalen van Google News, Turkse feeds, ontdubbelen en koersdata koppelen... dit duurt enkele seconden."):
@@ -409,7 +384,7 @@ if st.button("🚀 Start Volledige Master Analyse (Inclusief Ontdubbeling)", typ
             ("🚨 Fondsschandaal & Justitie", '("fon" OR "SPK" OR "manipülasyon" OR "gözaltı" OR "kayyum")', "tr", 12, max_days_slider, tickers_clean, custom_search_query),
             ("📜 Resmi Gazete & Beleid", '("Resmi Gazete" OR "ÖTV" OR "vergi")', "tr", 10, max_days_slider, tickers_clean, custom_search_query),
             ("🧠 Top-Economen", '("Mahfi Eğilmez" OR "Özgür Demirtaş" OR "Hakan Kara" OR "İslam Memiş")', "tr", 10, max_days_slider, tickers_clean, custom_search_query),
-            ("📈 BIST 100 & Macro", '("Borsa İstanbul" OR "BIST 100" OR "TCMB" OR "faiz")', "tr", 12, max_days_slider, tickers_clean, custom_search_query),
+            ("📈 BIST 30 & Macro", '("Borsa İstanbul" OR "BIST 30" OR "TCMB" OR "faiz")', "tr", 12, max_days_slider, tickers_clean, custom_search_query),
             ("🌍 Oorlog & Geopolitiek (NL)", '(oorlog OR sancties OR "Midden-Oosten")', "nl", 10, max_days_slider, [], custom_search_query),
             ("🥇 Goud & Zilver (NL)", '(goudprijs OR zilverprijs OR "Fed rente" OR edelmetalen)', "nl", 10, max_days_slider, [], custom_search_query),
             ("🏛️ OFFICIEEL KAP", 'site:kap.org.tr "bildirim"', "tr", 8, max_days_slider, tickers_clean, custom_search_query)
@@ -429,7 +404,7 @@ if st.button("🚀 Start Volledige Master Analyse (Inclusief Ontdubbeling)", typ
             item["title_nl"] = translate_to_nl(item["title_orig"]) if item["lang"] == "tr" else item["title_orig"]
             item["desc_nl"] = translate_to_nl(item["desc_orig"]) if item["lang"] == "tr" else item["desc_orig"]
             
-            matched = [tk for tk in [t.split(" ")[0] for t in BIST_100_STOCKS] if tk in item["title_orig"].upper() or tk in item["title_nl"].upper()]
+            matched = [tk for tk in [t.split(" ")[0] for t in BIST_30_STOCKS] if tk in item["title_orig"].upper() or tk in item["title_nl"].upper()]
             item["_matched_tickers"] = matched
             
             jip, impact, c_class, badge, sec_str, s_type = build_jip_en_janneke_analysis(item["title_orig"], item["title_nl"], item["desc_nl"], matched)
@@ -461,11 +436,11 @@ if st.session_state.master_enriched is not None:
         pos_c = sum(1 for x in data if x["sentiment_type"] == "pos")
         
         if neg_c > pos_c + 2:
-            st.error(f"🚨 **Markt Barometer (BIST 100):** Hoog risico. Er circuleren {neg_c} zware waarschuwingen of justitiële schandalen.")
+            st.error(f"🚨 **Markt Barometer (BIST 30):** Hoog risico. Er circuleren {neg_c} zware waarschuwingen of justitiële schandalen.")
         elif pos_c > neg_c:
-            st.success(f"🟢 **Markt Barometer (BIST 100):** Positieve flow. Bedrijfs- en macro-nieuws is overwegend constructief.")
+            st.success(f"🟢 **Markt Barometer (BIST 30):** Positieve flow. Bedrijfs- en macro-nieuws is overwegend constructief.")
         else:
-            st.info(f"⚖️ **Markt Barometer (BIST 100):** Neutraal beeld. Markten zoeken richting.")
+            st.info(f"⚖️ **Markt Barometer (BIST 30):** Neutraal beeld. Markten zoeken richting.")
             
         st.markdown("<br>", unsafe_allow_html=True)
             
@@ -497,7 +472,7 @@ if st.session_state.master_enriched is not None:
             """, unsafe_allow_html=True)
             
     with tab2:
-        st.markdown("### 🕵️‍♂️ Agent 2: Live Technische Koers-Matrix")
+        st.markdown("### 🕵️‍♂️ Agent 2: Live Technische Koers-Matrix (BIST 30)")
         if tech:
             df = pd.DataFrame([{"Ticker": k, "Koers": v.get("price"), "Mutatie %": v.get("change"), "RSI": v.get("rsi"), "Steun S1": v.get("s1"), "Weerstand R1": v.get("r1"), "Trend": v.get("trend")} for k, v in tech.items()])
             st.dataframe(df, use_container_width=True, hide_index=True)
