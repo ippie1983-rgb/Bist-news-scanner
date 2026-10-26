@@ -1,370 +1,516 @@
 import os
 import re
 import html
-import time
+import json
 import difflib
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import numpy as np
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
-from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
+from concurrent.futures import ThreadPoolExecutor
 
 # ==============================================================================
-# ⚙️ CONFIGURATIE & SCHONE CSS OPMAAK
+# ⚙️ PAGINA CONFIGURATIE & SCHONE CSS (Geen Scrollbalken)
 # ==============================================================================
 st.set_page_config(
-    page_title="BIST & Gold Intelligence Scanner",
-    page_icon="📰",
+    page_title="BIST & Turkse Economie Master Scanner",
+    page_icon="🇹🇷",
     layout="wide"
 )
 
 st.markdown("""
 <style>
-    /* Blokkeer Streamlit's neiging om K/M te gebruiken */
+    /* Blokkeer Streamlit's neiging om metrics af te korten */
     [data-testid="stMetricValue"] { font-size: 1.6rem !important; white-space: nowrap !important; }
     
-    /* Schone Nieuwskaarten - Breekt tekst netjes af, NOOIT een scrollbalk */
-    .news-card {
+    /* Schone HTML Kaarten - Tekst breekt netjes af, NOOIT een horizontale scrollbalk */
+    .clean-card {
         background-color: #ffffff;
         padding: 18px;
         border-radius: 8px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        margin-bottom: 15px;
-        border-left: 5px solid #cbd5e1;
+        margin-bottom: 16px;
         word-wrap: break-word;
         white-space: normal;
+        border-left: 5px solid #cbd5e1;
     }
-    .news-card.pos { border-left-color: #10b981; }
-    .news-card.neg { border-left-color: #ef4444; }
-    .news-card.warn { border-left-color: #f59e0b; }
-    .news-card.info { border-left-color: #3b82f6; }
+    .clean-card.scandal-card { border-left-color: #ef4444; } /* Rood */
+    .clean-card.positive-card { border-left-color: #10b981; } /* Groen */
+    .clean-card.news-card { border-left-color: #3b82f6; } /* Blauw */
     
-    .news-title { margin-top: 0; color: #0f172a; font-size: 18px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
-    .news-meta { font-size: 12px; color: #64748b; margin-bottom: 12px; font-weight: 600; }
-    .news-section { font-size: 15px; color: #334155; line-height: 1.5; margin-bottom: 8px; }
-    .news-section strong { color: #1e293b; }
+    .card-title { margin-top: 0; color: #0f172a; font-size: 18px; font-weight: 700; margin-bottom: 4px; line-height: 1.3; }
+    .card-subtitle { font-size: 13px; color: #64748b; margin-bottom: 12px; }
+    .card-text { font-size: 15px; color: #334155; line-height: 1.5; margin-bottom: 8px; }
+    .card-text strong { color: #1e293b; }
     
-    .badge-bar { margin-bottom: 10px; }
-    .badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 6px; }
-    .badge-bist { background-color: #e0e7ff; color: #3730a3; }
-    .badge-macro { background-color: #fef9c3; color: #854d0e; }
-    .badge-justice { background-color: #fee2e2; color: #991b1b; }
+    .badge-pill { padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-right: 6px; }
+    .badge-neg { background-color: #fee2e2; color: #991b1b; }
+    .badge-pos { background-color: #dcfce7; color: #166534; }
+    .badge-warn { background-color: #fef9c3; color: #854d0e; }
+    .badge-info { background-color: #e0f2fe; color: #075985; }
     
-    hr { margin: 10px 0; border: 0; border-top: 1px solid #e2e8f0; }
+    .stock-chip { 
+        display: inline-block; background-color: #f1f5f9; padding: 4px 8px; 
+        border-radius: 4px; font-size: 13px; margin: 2px 4px 2px 0; border: 1px solid #e2e8f0;
+    }
+    hr { margin: 12px 0; border: 0; border-top: 1px solid #e2e8f0; }
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown('<p style="font-size: 28px; font-weight: bold; color: #1E3A8A; margin-bottom: 0;">🇹🇷 BIST & Turkse Economie Master Scanner</p>', unsafe_allow_html=True)
+st.markdown("Gecombineerde **Master News Hub** met **Turkse nieuwsfeeds + Google News**, **voorzichtige ontdubbeling**, **live sentiment barometer**, **vrije zoekfunctie** en de **30-dagen Macro-Agenda**.")
+
 # ==============================================================================
-# 🗂 WOORDENLIJSTEN & INTELLIGENCE DATA
+# 🗂 BIST 100 LIJST & CONFIGURATIE (Intact gebleven)
 # ==============================================================================
-BIST_TICKERS = [
-    "AKBNK", "ALARK", "ASELS", "ASTOR", "BIMAS", "BRSAN", "CCOLA", "CIMSA", "CWENE", "DOAS", 
-    "EGEEN", "EKGYO", "ENJSA", "ENKAI", "EREGL", "FROTO", "GARAN", "GESAN", "GUBRF", "HALKB", 
-    "HEKTS", "ISCTR", "KCHOL", "KONTR", "KOZAA", "KOZAL", "KRDMD", "MIATK", "ODAS", "OYAKC", 
-    "PETKM", "PGSUS", "SAHOL", "SASA", "SISE", "SMRTG", "SOKM", "TAVHL", "TCELL", "THYAO", 
-    "TOASO", "TTKOM", "TUPRS", "VAKBN", "VESTL", "YKBNK"
+BIST_INDEX_OPTION = "📈 BIST 100 Index (Algemeen & Brede Markt)"
+
+BIST_100_STOCKS = [
+    "AEFES (Anadolu Efes)", "AGHOL (Anadolu Grubu Holding)", "AGROT (Agrotech)", "AHGAZ (Ahlatcı Doğalgaz)",
+    "AKBNK (Akbank)", "AKCNS (Akçansa)", "AKFGY (Akfen GYO)", "AKFYE (Akfen Yenilenebilir Enerji)",
+    "AKSA (Aksa Akrilik)", "AKSEN (Aksa Enerji)", "ALARK (Alarko Holding)", "ALBRK (Albaraka Türk)",
+    "ALFAS (Alfa Solar Enerji)", "ALTNY (Altınay Savunma)", "ANHYT (Anadolu Hayat Emeklilik)", "ANSGR (Anadolu Sigorta)",
+    "ARCLK (Arçelik)", "ARDYZ (ARD Bilişim)", "ASELS (Aselsan)", "ASTOR (Astor Enerji)",
+    "BERA (Bera Holding)", "BFREN (Bosch Fren)", "BIENY (Bien Yapı)", "BIMAS (Bim Mağazalar)",
+    "BINHO (1000 Yatırımlar Holding)", "BRSAN (Borusan Boru)", "BRYAT (Borusan Yatırım)", "BTCIM (Batıçim)",
+    "CANTE (Çan2 Termik)", "CCOLA (Coca-Cola İçecek)", "CIMSA (Çimsa)", "CLEBI (Çelebi Hava Servisi)",
+    "CWENE (CW Enerji)", "DEVA (Deva Holding)", "DOAS (Doğuş Otomotiv)", "DOHOL (Doğan Holding)",
+    "ECILC (Eczacıbaşı İlaç)", "ECZYT (Eczacıbaşı Yatırım)", "EGEEN (Ege Endüstri)", "EKGYO (Emlak Konut GYO)",
+    "ENERY (Enerya Enerji)", "ENJSA (Enerjisa Enerji)", "ENKAI (Enka İnşaat)", "EREGL (Erdemir)",
+    "EUPWR (Europower Enerji)", "EUREN (Europen Endüstri)", "FROTO (Ford Otosan)", "GARAN (Garanti BBVA)",
+    "GESAN (Girişim Elektrik)", "GOLTS (Göltaş Çimento)", "GUBRF (Gübre Fabrikaları)", "GWIND (Galata Wind)",
+    "HALKB (Halkbank)", "HEKTS (Hektaş)", "IMASM (İmaş Makina)", "IPEKE (İpek Doğal Enerji)",
+    "ISCTR (İş Bankası C)", "ISDMR (İskenderun Demir Çelik)", "ISGYO (İş GYO)", "ISMEN (İş Yatırım)",
+    "KAYSE (Kayseri Şeker)", "KCAER (Kocaer Çelik)", "KCHOL (Koç Holding)", "KLSER (Kaleseramik)",
+    "KONTR (Kontrolmatik)", "KONYA (Konya Çimento)", "KORDS (Kordsa)", "KOZAA (Koza Anadolu Metal)",
+    "KOZAL (Koza Altın)", "KRDMD (Kardemir D)", "KTLEV (Katılımevim)", "LMKDC (Limak Doğu Anadolu Çimento)",
+    "MAVI (Mavi Giyim)", "MGROS (Migros)", "MIATK (Mia Teknoloji)", "OBAMS (Oba Makarnacılık)",
+    "ODAS (Odaş Elektrik)", "OTKAR (Otokar)", "OYAKC (Oyak Çimento)", "PASEU (Pasifik Eurasia Lojistik)",
+    "PEKGY (Peker GYO)", "PETKM (Petkim)", "PGSUS (Pegasus)", "QUAGR (Qua Granite)",
+    "REEDR (Reeder Teknoloji)", "SAHOL (Sabancı Holding)", "SASA (Sasa Polyester)", "SDTTR (SDT Uzay en Savunma)",
+    "SISE (Şişecam)", "SKBNK (Şekerbank)", "SMRTG (Smart Güneş Enerjisi)", "SOKM (Şok Marketler)",
+    "TABGD (TAB Gıda)", "TAVHL (TAV Havalimanları)", "TCELL (Turkcell)", "THYAO (Turkish Airlines)",
+    "TKFEN (Tekfen Holding)", "TOASO (Tofaş Oto)", "TTKOM (Türk Telekom)", "TUPRS (Tüpraş)",
+    "TURSG (Türkiye Sigorta)", "ULKER (Ülker Bisküvi)", "VAKBN (VakıfBank)", "VESBE (Vestel Beyaz Eşya)",
+    "VESTL (Vestel)", "YEOTK (YEO Teknoloji)", "YKBNK (Yapı Kredi)", "YYLGD (Yayla Agro Gıda)",
+    "ZOREN (Zorlu Enerji)"
 ]
 
-TOP_ANALYSTS = [
-    "Mahfi Eğilmez", "Özgür Demirtaş", "Emre Alkin", "İslam Memiş", "Tunç Şatıroğlu", 
-    "Hakan Kara", "Kerim Rota", "Işık Ökte", "Tuncay Turşucu", "Atilla Yeşilada", "Luke Gromen", "Peter Schiff"
-]
+ALL_SIDEBAR_OPTIONS = [BIST_INDEX_OPTION] + BIST_100_STOCKS
 
-DIRECT_FEEDS = {
-    "TR_ECONOMY": [
-        ("Bloomberg HT", "https://www.bloomberght.com/rss"),
-        ("NTV Ekonomi", "https://www.ntv.com.tr/ekonomi.rss"),
-        ("Dünya", "https://www.dunya.com/rss"),
-        ("T24 Gündem", "https://t24.com.tr/rss")
-    ],
-    "GLOBAL_MACRO": [
-        ("Kitco Gold", "https://www.kitco.com/rss/news_precious_metals.xml"),
-        ("Investing NL", "https://nl.investing.com/rss/news.rss")
-    ]
+COMPANY_TO_TICKER_MAP = {
+    "türk hava yolları": "THYAO", "turkish airlines": "THYAO", "aselsan": "ASELS", "koç holding": "KCHOL", 
+    "koc holding": "KCHOL", "akbank": "AKBNK", "garanti bbva": "GARAN", "garanti bankası": "GARAN",
+    "tüpraş": "TUPRS", "tupras": "TUPRS", "bim mağazalar": "BIMAS", "erdemir": "EREGL", "ereğli demir": "EREGL", 
+    "şişecam": "SISE", "sisecam": "SISE", "sasa polyester": "SASA", "emlak konut": "EKGYO", "yapı kredi": "YKBNK", 
+    "iş bankası": "ISCTR", "petkim": "PETKM", "pegasus": "PGSUS", "tofaş": "TOASO", "arçelik": "ARCLK",
+    "enka inşaat": "ENKAI", "kardemir": "KRDMD", "türk telekom": "TTKOM", "turkcell": "TCELL", "ford otosan": "FROTO", 
+    "migros": "MGROS", "şok market": "SOKM", "astor enerji": "ASTOR", "enerjisa": "ENJSA", "sabancı holding": "SAHOL", 
+    "oyak çimento": "OYAKC", "hektaş": "HEKTS", "odaş": "ODAS", "girişim elektrik": "GESAN", "kontrolmatik": "KONTR",
+    "halkbank": "HALKB", "vakıfbank": "VAKBN", "alarko": "ALARK", "borusan": "BRSAN", "doğuş otomotiv": "DOAS", 
+    "doğan holding": "DOHOL", "gübre fabrikaları": "GUBRF", "koza altın": "KOZAL", "mavi giyim": "MAVI",
+    "otokar": "OTKAR", "tav havalimanları": "TAVHL", "tekfen": "TKFEN", "ülker": "ULKER", "vestel": "VESTL", 
+    "zorlu enerji": "ZOREN", "anadolu efes": "AEFES", "coca-cola içecek": "CCOLA", "çimsa": "CIMSA",
+    "deva holding": "DEVA", "eczacıbaşı": "ECILC", "smart güneş": "SMRTG", "cw enerji": "CWENE", 
+    "europower": "EUPWR", "reeder": "REEDR", "tab gıda": "TABGD", "türkiye sigorta": "TURSG", "katılımevim": "KTLEV"
 }
 
+DIRECT_TURKISH_RSS_FEEDS = [
+    ("📰 Bloomberg HT (Direct)", "https://www.bloomberght.com/rss"),
+    ("📰 Habertürk Ekonomi (Direct)", "https://www.haberturk.com/rss/ekonomi.xml"),
+    ("📰 NTV Ekonomi (Direct)", "https://www.ntv.com.tr/ekonomi.rss"),
+    ("📰 CNN Türk Ekonomi (Direct)", "https://www.cnnturk.com/feed/rss/ekonomi/news"),
+    ("📰 Dünya Gazetesi (Direct)", "https://www.dunya.com/rss"),
+    ("📰 Cumhuriyet Ekonomi (Direct)", "https://www.cumhuriyet.com.tr/rss/ekonomi.xml"),
+    ("📰 T24 Gündem & Politika (Direct)", "https://t24.com.tr/rss")
+]
+
 # ==============================================================================
-# 📊 LIVE MACRO TICKER (YFINANCE)
+# 🎛️ ZIJBALK: INSTELLINGEN
+# ==============================================================================
+st.sidebar.header("⚙️ Systeem & Inhouds-Filter")
+
+custom_search_query = st.sidebar.text_input("🔎 Vrije Live Zoekopdracht (Optioneel):", value="", placeholder="Bijv. Tera, IEYHO, İmamoğlu...")
+st.sidebar.markdown("---")
+
+select_all_bist = st.sidebar.checkbox("Selecteer ALLE watchlist-aandelen tegelijk", value=False)
+if select_all_bist:
+    default_selection = ALL_SIDEBAR_OPTIONS
+else:
+    default_selection = [BIST_INDEX_OPTION, "THYAO (Turkish Airlines)", "ASELS (Aselsan)", "KCHOL (Koç Holding)", "AKBNK (Akbank)", "GARAN (Garanti BBVA)", "TUPRS (Tüpraş)"]
+
+selected_tickers = st.sidebar.multiselect("🎯 Kies BIST 100 Index en/of aandelen:", options=ALL_SIDEBAR_OPTIONS, default=default_selection)
+max_days_slider = st.sidebar.slider("Nieuws ouderdom (dagen):", min_value=1, max_value=5, value=3)
+include_direct_newspaper_rss = st.sidebar.checkbox("⚡ Inclusief rechtstreekse Turkse kranten-feeds", value=True)
+
+dedup_strictness = st.sidebar.radio("🧠 Inhoudelijke Ontdubbeling:", ["Slim (1 kaart per uniek verhaal)", "Maximaal (Groepeer per thema)"], index=0)
+sort_mode = st.sidebar.radio("Sorteervolgorde in Master Hub:", ["Op Prioriteit (Nieuwste eerst)", "Puur op Datum"], index=0)
+
+# ==============================================================================
+# 🧠 NLP & SEMANTISCHE FILTERS
+# ==============================================================================
+HARD_EXCLUDE_WORDS = [
+    "futbol", "maç", "gol", "süper lig", "galatasaray", "fenerbahçe", "beşiktaş", "trabzonspor", "derbi", "hakem", "transfer", 
+    "basketbol", "magazin", "dizi", "şarkıcı", "burç", "astroloji", "survivor", "uyuşturucu", "cinayet", "trafik kazası", 
+    "boşanma", "aldatma", "hava durumu", "yemek tarifi", "bulmaca"
+]
+
+ECONOMIC_POLITICAL_WHITELIST = [
+    "ekonomi", "borsa", "bist", "hisse", "spk", "sermaye", "fon", "manipülasyon", "soruşturma", "operasyon", "gözaltı", 
+    "tutuklama", "ev hapsi", "kayyum", "tmsf", "ceza", "görevden", "resmi gazete", "tcmb", "merkez bankası", "faiz", 
+    "enflasyon", "tüik", "şimşek", "erdoğan", "karahan", "dolar", "altın", "gümüş", "petrol", "cds", "fitch", "moody", 
+    "temettü", "kap", "bilanço", "ihale", "goud", "zilver", "rente", "inflatie", "oorlog", "olie", "geopolitiek", "fed"
+]
+
+def normalize_tr(text):
+    if not text: return ""
+    return text.translate(str.maketrans("çğıöşüÇĞİÖŞÜ", "cgiosuCGIOSU")).lower()
+
+def is_economically_relevant(title, description="", extra_tickers=None, custom_kw=""):
+    text = normalize_tr(f"{title or ''} {description or ''}")
+    custom = normalize_tr(custom_kw or "").strip()
+    if custom and custom in text: return True
+    if extra_tickers:
+        for ticker in extra_tickers:
+            if re.search(r"(?<![a-z0-9])" + re.escape(str(ticker).lower()) + r"(?![a-z0-9])", text): return True
+    if any(normalize_tr(word) in text for word in ECONOMIC_POLITICAL_WHITELIST): return True
+    if any(re.search(r"(?<!\w)" + re.escape(normalize_tr(bad)) + r"(?!\w)", text) for bad in HARD_EXCLUDE_WORDS): return False
+    return False
+
+def translate_to_nl(text):
+    if not text or len(text.strip()) < 3: return text
+    try:
+        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=nl&dt=t&q={urllib.parse.quote(text[:480])}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            translated = "".join([part[0] for part in data[0] if part and part[0]])
+            return translated if translated else text
+    except: return text
+
+def clean_html_text(raw_html):
+    if not raw_html: return ""
+    return re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', raw_html))).strip()
+
+# ==============================================================================
+# 📊 LIVE MARKTDATA & TECHNISCHE INDICATOREN (YFINANCE)
 # ==============================================================================
 @st.cache_data(ttl=300, show_spinner=False)
-def get_live_market_data():
-    symbols = {
-        "BIST 100": "XU100.IS", 
-        "USD/TRY": "USDTRY=X", 
-        "EUR/TRY": "EURTRY=X",
-        "Goud Ons ($)": "GC=F", 
-        "Zilver Ons ($)": "SI=F", 
-        "Brent Olie ($)": "BZ=F", 
-        "VIX (Angst)": "^VIX"
-    }
+def get_live_market_snapshot():
+    symbols = {"BIST 100": "XU100.IS", "USD/TRY": "USDTRY=X", "Goud Ons ($)": "GC=F", "Zilver Ons ($)": "SI=F", "Brent Olie ($)": "BZ=F", "VIX (Angst)": "^VIX"}
     data = {}
     for name, sym in symbols.items():
         try:
-            hist = yf.Ticker(sym).history(period="5d")
+            hist = yf.Ticker(sym).history(period="3d")
             if len(hist) >= 2:
-                curr = float(hist["Close"].iloc[-1])
-                prev = float(hist["Close"].iloc[-2])
-                chg = ((curr - prev) / prev) * 100.0
-                data[name] = {"price": curr, "change": chg}
+                curr, prev = float(hist["Close"].iloc[-1]), float(hist["Close"].iloc[-2])
+                data[name] = {"price": curr, "change": ((curr - prev) / prev) * 100.0, "as_of": str(hist.index[-1].date())}
             else:
-                data[name] = {"price": 0.0, "change": 0.0}
-        except:
-            data[name] = {"price": 0.0, "change": 0.0}
-
-    usd_try = data["USD/TRY"]["price"]
-    gold_usd = data["Goud Ons ($)"]["price"]
-    silver_usd = data["Zilver Ons ($)"]["price"]
-
-    if gold_usd > 0 and usd_try > 0:
-        data["Gram Goud (₺)"] = {
-            "price": (gold_usd * usd_try) / 31.1035,
-            "change": data["Goud Ons ($)"]["change"] + data["USD/TRY"]["change"]
-        }
-    else:
-        data["Gram Goud (₺)"] = {"price": 0.0, "change": 0.0}
+                data[name] = {"price": None, "change": 0.0, "as_of": "N/B"}
+        except: data[name] = {"price": None, "change": 0.0, "as_of": "N/B"}
         
-    if silver_usd > 0 and usd_try > 0:
-        data["Gram Zilver (₺)"] = {
-            "price": (silver_usd * usd_try) / 31.1035,
-            "change": data["Zilver Ons ($)"]["change"] + data["USD/TRY"]["change"]
-        }
-    else:
-        data["Gram Zilver (₺)"] = {"price": 0.0, "change": 0.0}
-        
+    usd_try = data.get("USD/TRY", {}).get("price")
+    gold_usd = data.get("Goud Ons ($)", {}).get("price")
+    if usd_try and gold_usd:
+        data["Gram Goud (₺)"] = {"price": (gold_usd * usd_try) / 31.1035, "change": data["Goud Ons ($)"]["change"] + data["USD/TRY"]["change"]}
+    else: data["Gram Goud (₺)"] = {"price": None, "change": 0.0}
     return data
 
-# ==============================================================================
-# 🧠 TEKSTANALYSE & JIP-EN-JANNEKE ENGINE
-# ==============================================================================
-def clean_html(raw_html):
-    if not raw_html: return ""
-    clean = re.sub(r'<[^>]+>', ' ', raw_html)
-    clean = html.unescape(clean)
-    return re.sub(r'\s+', ' ', clean).strip()
+@st.cache_data(ttl=600, show_spinner=False)
+def get_bist_technical_snapshots(tickers_tuple):
+    snapshots = {}
+    for code in tickers_tuple:
+        try:
+            hist = yf.Ticker(f"{code}.IS").history(period="3mo")
+            if len(hist) >= 15:
+                curr = float(hist["Close"].iloc[-1])
+                prev = float(hist["Close"].iloc[-2])
+                chg_1d = ((curr - prev) / prev) * 100.0
+                
+                delta = hist["Close"].diff()
+                gain = delta.clip(lower=0).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
+                loss = (-delta.clip(upper=0)).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
+                rsi = 100.0 - (100.0 / (1.0 + (gain / loss))) if loss > 0 else 50.0
+                
+                w_h, w_l = float(hist["High"].tail(20).max()), float(hist["Low"].tail(20).min())
+                pivot = (w_h + w_l + curr) / 3.0
+                rng = max(w_h - w_l, curr * 0.02)
+                
+                snapshots[code] = {
+                    "price": round(curr, 2), "change": round(chg_1d, 2), "rsi": round(float(rsi), 1),
+                    "s1": round(pivot - (0.382 * rng), 2), "r1": round(pivot + (0.382 * rng), 2),
+                    "trend": "📈" if curr >= float(hist["Close"].rolling(20).mean().iloc[-1]) else "📉"
+                }
+        except: pass
+    return snapshots
 
-def analyze_article(title, desc, source):
-    """Categoriseert het nieuws en bouwt de Jip-en-Janneketaal zinnen."""
-    full_text = f"{title} {desc}".lower()
+# ==============================================================================
+# 🧠 INTELLIGENCE: JIP-EN-JANNEKE & CATEGORISATIE
+# ==============================================================================
+def detect_sector_and_badge(combined_text, mentioned_stocks):
+    sectors = []
+    if any(w in combined_text for w in ["banka", "faiz", "tcmb", "akbnk", "garan", "ykbnk", "isctr"]): sectors.append("🏦 Banken")
+    if any(w in combined_text for w in ["savunma", "asels", "oorlog", "navo"]): sectors.append("🛡️ Defensie")
+    if any(w in combined_text for w in ["petrol", "enerji", "tuprs", "astor", "olie"]): sectors.append("⚡ Energie")
+    if mentioned_stocks: sectors.insert(0, f"🎯 Aandelen: {', '.join(sorted(mentioned_stocks))}")
+    if not sectors: sectors.append("📈 Brede BIST 100 Markt & Macro")
     
-    sentiment = "info"
-    jip_summary = "Dit is een algemeen economisch bericht."
-    econ_impact = "De impact op de bredere markt is afhankelijk van verdere details."
-    tags = []
+    if any(w in combined_text for w in ["tutuklama", "gözaltı", "soruşturma", "ceza", "işlem yasağı", "kayyum"]):
+        return '<span class="badge-pill badge-neg">🔴 HOOG RISICO / SCHANDAAL</span>', " · ".join(sectors[:3]), "neg"
+    elif any(w in combined_text for w in ["temettü", "bedelsiz", "rekor", "not artışı", "yabancı"]):
+        return '<span class="badge-pill badge-pos">🟢 POSITIEF / GROEI</span>', " · ".join(sectors[:3]), "pos"
+    elif any(w in combined_text for w in ["resmi gazete", "vergi", "faiz", "enflasyon", "trump", "fed"]):
+        return '<span class="badge-pill badge-warn">⚠️ BELEID & MACRO</span>', " · ".join(sectors[:3]), "warn"
+    return '<span class="badge-pill badge-info">⚖️ MARKT DUIDING</span>', " · ".join(sectors[:3]), "info"
+
+def build_jip_en_janneke_analysis(title_orig, title_nl, desc_nl, matched_tickers):
+    combined = f"{title_orig} {title_nl} {desc_nl}".lower()
+    badge_html, sector_str, sentiment_type = detect_sector_and_badge(combined, matched_tickers)
+
+    if any(w in combined for w in ["brüt takas", "işlem yasağı", "tedbir", "bedelsiz"]):
+        card_class, jip = "scandal-card" if "yasağı" in combined else "positive-card", "SPK of Borsa İstanbul heeft een direct besluit genomen over specifieke aandelen."
+        impact = "Beïnvloedt direct de liquiditeit en handel van het aandeel. Brüt takas droogt speculatie op, een 'bedelsiz' (splitsing) trekt vaak particulieren aan."
+    elif any(w in combined for w in ["fon", "spk", "tutuklama", "gözaltı", "kayyum", "soruşturma"]):
+        card_class, jip = "scandal-card", "Justitie of SPK grijpt in. Er lopen onderzoeken, arrestaties of inbeslagnames (kayyum)."
+        impact = "Zorgt voor acute koersdruk en paniek bij de direct betrokken bedrijven. Institutioneel geld vlucht weg."
+    elif any(w in combined for w in ["resmi gazete", "vergi", "atama"]):
+        card_class, jip = "news-card", "Nieuw overheidsbesluit in het Staatsblad (Resmi Gazete) over belastingen of benoemingen."
+        impact = "Nieuwe belastingen (zoals ÖTV) drukken de koersen van de geraakte sector. Steunmaatregelen stuwen ze."
+    elif any(w in combined for w in ["faiz", "tcmb", "enflasyon", "fed", "powell"]):
+        card_class, jip = "news-card", "Cruciale updates over inflatie en het rentebeleid van centrale banken."
+        impact = "Hoge of stijgende rentes maken lenen duurder, wat BIST 100 aandelen drukt. Verwachting van lagere rente is dé brandstof voor Goud en Zilver."
+    elif any(w in combined for w in ["trump", "abd", "savaş", "israil", "rusya", "oorlog", "sanctie"]):
+        card_class, jip = "news-card", "Geopolitieke spanningen, oorlog of internationale sancties."
+        impact = "Zorgt voor paniek op de BIST 100. Kapitaal vlucht direct naar 'veilige havens', waardoor Goud en Zilver scherp in prijs stijgen."
+    else:
+        card_class, jip = "news-card", "Actueel economisch of bedrijfsnieuws (KAP meldingen of macro-data)."
+        impact = "Geeft richting aan de dagelijkse handel. Positieve cijfers ondersteunen het vertrouwen."
+
+    return jip, impact, card_class, badge_html, sector_str, sentiment_type
+
+# ==============================================================================
+# 📡 RSS HARVESTING & SAMENVOEGEN
+# ==============================================================================
+SOURCE_STATUS = {}
+def record_source(name, status, count=0): SOURCE_STATUS[name] = {"status": status, "count": count}
+
+def fetch_google_rss_feed(args):
+    cat_label, query, lang, max_items, max_days, extra_tickers, custom_kw = args
+    q_enc = urllib.parse.quote(f"{query} when:{max_days}d" if max_days else query)
+    url = f"https://news.google.com/rss/search?q={q_enc}&hl={lang}&gl={lang.upper()}&ceid={lang.upper()}:{lang}"
     
-    # 1. Justitie & Schandalen
-    if any(w in full_text for w in ["tutuklama", "gözaltı", "operasyon", "spk", "ceza", "kayyum", "manipülasyon", "soruşturma"]):
-        sentiment = "neg"
-        tags.append("🚨 Justitie & SPK")
-        jip_summary = "Er is ingegrepen door justitie of de beurswaakhond (SPK). Het gaat hier om onderzoeken, arrestaties, huiszoekingen of zware boetes."
-        econ_impact = "Dit nieuws veroorzaakt doorgaans een onmiddellijke schokgolf. Aandelen van betrokken bedrijven kunnen scherp dalen door paniekverkopen. Grote partijen blijven voorlopig aan de zijlijn."
-        
-    # 2. Rente, TCMB & Fed
-    elif any(w in full_text for w in ["faiz", "tcmb", "merkez bankası", "enflasyon", "fed", "powell", "şimşek"]):
-        sentiment = "warn"
-        tags.append("🏦 Macro & Rente")
-        jip_summary = "Dit bericht draait om het rente- of inflatiebeleid van centrale banken zoals de TCMB of de Fed."
-        econ_impact = "Beslissingen over rente sturen de hele markt. Een hogere rente is nadelig voor aandelen omdat lenen duurder wordt. Voor Goud en Zilver is een signaal dat de rente omlaag gaat juist de perfecte brandstof voor een prijsstijging."
-        
-    # 3. Oorlog & Geopolitiek
-    elif any(w in full_text for w in ["savaş", "israil", "rusya", "iran", "yaptırım", "oorlog", "sanctie", "füze", "pentagon"]):
-        sentiment = "neg"
-        tags.append("🌍 Geopolitiek & Oorlog")
-        jip_summary = "Er is sprake van toenemende geopolitieke spanningen, oorlogsdreiging of internationale sancties."
-        econ_impact = "Bij internationale onrust vlucht kapitaal razendsnel uit risicovolle aandelen (BIST 100 daalt) richting 'veilige havens'. Dit is de primaire reden waarom prijzen van Goud en Zilver bij dit soort nieuws vaak omhoog schieten. Defensie-aandelen (zoals ASELSAN) kunnen wel profiteren."
-        
-    # 4. Economische Groei & Positief Nieuws
-    elif any(w in full_text for w in ["büyüme", "rekor", "not artışı", "fitch", "moody", "yabancı yatırımcı", "temettü", "bedelsiz"]):
-        sentiment = "pos"
-        tags.append("📈 Groei & Instroom")
-        jip_summary = "Positief economisch nieuws: denk aan sterke kwartaalcijfers, een upgrade van de kredietstatus van Turkije, of vers buitenlands kapitaal dat de markt instroomt."
-        econ_impact = "Dit is uitstekend nieuws voor de beurs. Banken en de zwaargewichten uit de BIST 100 Index reageren hier direct positief op omdat het vertrouwen toeneemt."
-        
-    # Zoek naar specifieke BIST tickers
-    matched_tickers = [tk for tk in BIST_TICKERS if tk in title.upper() or tk in desc.upper()]
-    if matched_tickers:
-        tags.append(f"🏢 BIST: {', '.join(matched_tickers)}")
-        
-    # Zoek naar bekende analisten
-    matched_analysts = [an for an in TOP_ANALYSTS if an.lower() in full_text]
-    if matched_analysts:
-        tags.append(f"🧠 Analist: {', '.join(matched_analysts)}")
-
-    return sentiment, tags, jip_summary, econ_impact
-
-# ==============================================================================
-# 📡 RSS OOGSTMACHINE (Layers A & B)
-# ==============================================================================
-def fetch_rss_feed(url, source_name, max_items=10):
-    items = []
+    items, now_utc = [], datetime.now(timezone.utc)
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 BISTScanner/2.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
             root = ET.fromstring(resp.read())
-            
-        for item in root.findall(".//item")[:max_items]:
-            title = clean_html(item.findtext("title") or "")
-            desc = clean_html(item.findtext("description") or "")
-            link = item.findtext("link") or ""
-            pub_date = item.findtext("pubDate") or ""
-            
+        for item in root.findall(".//item"):
+            title, link = item.findtext("title") or "", item.findtext("link") or ""
+            desc = clean_html_text(item.findtext("description") or "")
+            src = item.find("source").text if item.find("source") is not None else "Nieuws"
             if not title or not link: continue
             
-            dt = datetime.now(timezone.utc)
-            if pub_date:
-                try:
-                    parsed_dt = parsedate_to_datetime(pub_date)
-                    if parsed_dt: dt = parsed_dt if parsed_dt.tzinfo else parsed_dt.replace(tzinfo=timezone.utc)
-                except: pass
-                
-            sentiment, tags, jip, impact = analyze_article(title, desc, source_name)
+            title = title.rsplit(" - ", 1)[0].strip() if " - " in title else title.strip()
+            if not is_economically_relevant(title, desc, extra_tickers, custom_kw): continue
             
-            items.append({
-                "title": title, "desc": desc, "link": link, "source": source_name, 
-                "datetime": dt, "sentiment": sentiment, "tags": tags, "jip": jip, "impact": impact
-            })
-    except:
-        pass
+            dt = now_utc
+            pub_str = item.findtext("pubDate")
+            if pub_str:
+                try: 
+                    p_dt = parsedate_to_datetime(pub_str)
+                    if p_dt: dt = p_dt if p_dt.tzinfo else p_dt.replace(tzinfo=timezone.utc)
+                except: pass
+            
+            items.append({"category": cat_label, "title_orig": title, "desc_orig": desc, "source": src, "link": link, "datetime": dt, "lang": lang})
+            if len(items) >= max_items: break
+        record_source(cat_label, "OK", len(items))
+    except: record_source(cat_label, "FOUT", 0)
     return items
 
-def fetch_google_news(query, lang="tr", max_items=15):
-    q_enc = urllib.parse.quote(f"{query} when:3d")
-    url = f"https://news.google.com/rss/search?q={q_enc}&hl={lang}&gl={lang.upper()}&ceid={lang.upper()}:{lang}"
-    return fetch_rss_feed(url, "Google News (Aggregator)", max_items)
+def fetch_direct_newspaper_rss(args):
+    source_label, url, max_days, extra_tickers, custom_kw = args
+    items, now_utc = [], datetime.now(timezone.utc)
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            root = ET.fromstring(resp.read())
+        for item in root.findall(".//item")[:15]:
+            title, link = clean_html_text(item.findtext("title") or ""), (item.findtext("link") or "").strip()
+            desc = clean_html_text(item.findtext("description") or "")
+            if not title or not link or not is_economically_relevant(title, desc, extra_tickers, custom_kw): continue
+            
+            dt, pub_str = now_utc, item.findtext("pubDate")
+            if pub_str:
+                try: 
+                    p_dt = parsedate_to_datetime(pub_str)
+                    if p_dt: dt = p_dt if p_dt.tzinfo else p_dt.replace(tzinfo=timezone.utc)
+                except: pass
+                
+            items.append({"category": source_label, "title_orig": title, "desc_orig": desc[:300], "source": source_label.split(" ")[1], "link": link, "datetime": dt, "lang": "tr"})
+    except: pass
+    return items
 
-def run_harvesting_engine():
-    tasks = []
-    
-    # Layer A & B: Directe Turkse Feeds
-    for name, url in DIRECT_FEEDS["TR_ECONOMY"]:
-        tasks.append((url, name, 8))
-        
-    # Layer A & B: Directe Globale Feeds
-    for name, url in DIRECT_FEEDS["GLOBAL_MACRO"]:
-        tasks.append((url, name, 8))
-        
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        results = list(executor.map(lambda p: fetch_rss_feed(*p), tasks))
-        
-    # Specifieke Google News Queries
-    gn_results = []
-    queries = [
-        ('("SPK" OR "tutuklama" OR "kayyum" OR "manipülasyon" OR "operasyon")', 'tr'),
-        ('("TCMB" OR "faiz" OR "enflasyon" OR "Mehmet Şimşek")', 'tr'),
-        ('(goudprijs OR zilverprijs OR "Fed rente" OR "Midden-Oosten" OR oorlog)', 'nl')
-    ]
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        gn_results = list(executor.map(lambda q: fetch_google_news(q[0], q[1], 12), queries))
-        
-    all_items = []
-    for r in results + gn_results: all_items.extend(r)
-    return all_items
-
-# ==============================================================================
-# 🧹 SEMANTISCHE ONTDUBBELING
-# ==============================================================================
-def deduplicate_news(items):
-    items.sort(key=lambda x: x["datetime"].timestamp(), reverse=True)
-    unique_items = []
-    seen_links = set()
-    
+def deduplicate_by_semantic_content(items, max_mode=False):
+    items.sort(key=lambda x: -x["datetime"].timestamp())
+    unique_items, seen_links = [], set()
     for item in items:
-        link = item["link"].split("?")[0].strip("/")
-        if link in seen_links: continue
+        norm_link = item["link"].split("?")[0].rstrip("/").lower()
+        if norm_link in seen_links: continue
         
-        is_dup = False
-        title_lower = item["title"].lower()
-        
+        c_title = normalize_tr(item.get("title_nl", item["title_orig"]))
+        dup_of = None
         for ex in unique_items:
-            # Als titels voor 75% overeenkomen, is het hetzelfde nieuwsfeit
-            if difflib.SequenceMatcher(None, title_lower, ex["title"].lower()).ratio() > 0.75:
-                is_dup = True
+            similarity = difflib.SequenceMatcher(None, c_title, normalize_tr(ex.get("title_nl", ex["title_orig"]))).ratio()
+            if similarity >= (0.82 if max_mode else 0.88):
+                dup_of = ex
                 break
                 
-        if not is_dup:
-            seen_links.add(link)
+        if dup_of:
+            links = dup_of.setdefault("extra_source_links", [])
+            if norm_link not in [l["link"].lower() for l in links]:
+                links.append({"name": item["source"], "link": item["link"]})
+        else:
+            seen_links.add(norm_link)
             unique_items.append(item)
-            
     return unique_items
 
 # ==============================================================================
-# 🖥️ COMMAND CENTER UI BOUWEN
+# 📅 AGENT 5: 30-DAGEN AGENDA
 # ==============================================================================
-st.markdown('<h1 style="color: #1e3a8a; margin-bottom: 0;">📰 BIST Gold & Macro Intelligence</h1>', unsafe_allow_html=True)
-st.markdown("Dual-Agent architectuur: Lokale schandalen & beleid vs. Globale macro & edelmetalen.")
+def get_upcoming_30_day_agenda():
+    return [
+        {"date": datetime(2026, 10, 28).date(), "title": "🇺🇸 Fed Rentebesluit & Powell", "jip": "De Amerikaanse centrale bank maakt haar rentebesluit bekend.", "impact": "Hint op lagere rente is direct positief voor Goud en Zilver.", "link": "https://www.federalreserve.gov/"},
+        {"date": datetime(2026, 10, 29).date(), "title": "🇹🇷 Cumhuriyet Bayramı", "jip": "Nationale feestdag. Borsa İstanbul is gesloten.", "impact": "Handelaren verkopen vooraf vaak aandelen om kredietrente te besparen.", "link": "https://www.borsaistanbul.com/"},
+        {"date": datetime(2026, 11, 3).date(), "title": "🇹🇷 TÜİK Inflatiecijfers", "jip": "Publicatie van de officiële Turkse consumentenprijzen.", "impact": "Lage inflatie stuwt bankaandelen omhoog.", "link": "https://www.tuik.gov.tr/"},
+        {"date": datetime(2026, 11, 19).date(), "title": "🇹🇷 TCMB Rentebesluit", "jip": "De Turkse Centrale Bank bepaalt de nieuwe rente.", "impact": "Cruciaal voor de Lira, Gram Goud en de hele BIST 100 Index.", "link": "https://www.tcmb.gov.tr/"}
+    ]
 
-# -- LIVE TICKER --
-m_data = get_live_market_data()
-cols = st.columns(len(m_data))
-for i, (name, d) in enumerate(m_data.items()):
-    cols[i].metric(name, f"{d['price']:,.2f}", f"{d['change']:+.2f}%")
+# ==============================================================================
+# 🖥️ HOOFDPROGRAMMA & INTERFACE
+# ==============================================================================
+market_data = get_live_market_snapshot()
+cols = st.columns(min(len(market_data), 6))
+for i, (name, info) in enumerate(list(market_data.items())[:6]):
+    if info["price"] is not None: cols[i].metric(name, f"{info['price']:,.2f}", f"{info['change']:+.2f}%")
 st.markdown("---")
 
-# -- OPHALEN DATA --
-if "news_cache" not in st.session_state:
-    with st.spinner("De 4 Intelligence Layers scannen, vertalen en ontdubbelen..."):
-        raw_news = run_harvesting_engine()
-        clean_news = deduplicate_news(raw_news)
+if "master_enriched" not in st.session_state: st.session_state.master_enriched = None
+
+if st.button("🚀 Start Volledige Master Analyse (Inclusief Ontdubbeling)", type="primary"):
+    tickers_clean = [t.split(" ")[0] for t in selected_tickers if t != BIST_INDEX_OPTION]
+    
+    with st.spinner("📡 Ophalen van Google News, Turkse feeds, ontdubbelen en koersdata koppelen... dit duurt enkele seconden."):
+        rss_tasks = [
+            ("🚨 Fondsschandaal & Justitie", '("fon" OR "SPK" OR "manipülasyon" OR "gözaltı" OR "kayyum")', "tr", 12, max_days_slider, tickers_clean, custom_search_query),
+            ("📜 Resmi Gazete & Beleid", '("Resmi Gazete" OR "ÖTV" OR "vergi")', "tr", 10, max_days_slider, tickers_clean, custom_search_query),
+            ("🧠 Top-Economen", '("Mahfi Eğilmez" OR "Özgür Demirtaş" OR "Hakan Kara" OR "İslam Memiş")', "tr", 10, max_days_slider, tickers_clean, custom_search_query),
+            ("📈 BIST 100 & Macro", '("Borsa İstanbul" OR "BIST 100" OR "TCMB" OR "faiz")', "tr", 12, max_days_slider, tickers_clean, custom_search_query),
+            ("🌍 Oorlog & Geopolitiek (NL)", '(oorlog OR sancties OR "Midden-Oosten")', "nl", 10, max_days_slider, [], custom_search_query),
+            ("🥇 Goud & Zilver (NL)", '(goudprijs OR zilverprijs OR "Fed rente" OR edelmetalen)', "nl", 10, max_days_slider, [], custom_search_query),
+            ("🏛️ OFFICIEEL KAP", 'site:kap.org.tr "bildirim"', "tr", 8, max_days_slider, tickers_clean, custom_search_query)
+        ]
         
-        # Splitsen per agent
-        agent1_news = [n for n in clean_news if "nl" not in n["source"].lower() and "google" not in n["source"].lower() or any(tag.startswith("🚨") or tag.startswith("🏢") for tag in n["tags"])]
-        agent2_news = [n for n in clean_news if "goud" in n["title"].lower() or "fed" in n["title"].lower() or any(tag.startswith("🌍") for tag in n["tags"])]
-        
-        # Fallback toewijzing
-        for n in clean_news:
-            if n not in agent1_news and n not in agent2_news:
-                agent1_news.append(n)
+        with ThreadPoolExecutor(max_workers=10) as ex:
+            google_res = list(ex.map(fetch_google_rss_feed, rss_tasks))
+            direct_res = []
+            if include_direct_newspaper_rss:
+                direct_tasks = [(label, url, max_days_slider, tickers_clean, custom_search_query) for label, url in DIRECT_TURKISH_RSS_FEEDS]
+                direct_res = list(ex.map(fetch_direct_newspaper_rss, direct_tasks))
                 
-        st.session_state.news_cache = {"a1": agent1_news, "a2": agent2_news, "raw_count": len(raw_news), "clean_count": len(clean_news)}
-
-c_data = st.session_state.news_cache
-st.success(f"✅ Oogst voltooid: {c_data['raw_count']} ruwe artikelen gescand, {c_data['raw_count'] - c_data['clean_count']} duplicaten verwijderd.")
-
-tab1, tab2 = st.tabs([f"🇹🇷 Agent 1: BIST, Beleid & Justitie ({len(c_data['a1'])})", f"🌍 Agent 2: Macro, Goud & Oorlog ({len(c_data['a2'])})"])
-
-def render_html_card(news):
-    """Rendert een strakke HTML kaart zonder streamit markdown-bugs (geen scrollbalken)."""
-    tags_html = "".join([f"<span class='badge badge-bist'>{t}</span>" for t in news['tags']])
-    
-    st.markdown(f"""
-    <div class="news-card {news['sentiment']}">
-        <div class="badge-bar">{tags_html}</div>
-        <h4 class="news-title">{news['title']}</h4>
-        <div class="news-meta">🕒 {news['datetime'].strftime('%d-%m %H:%M')} | 📰 Bron: {news['source']}</div>
-        <hr>
-        <div class="news-section"><strong>Wat betekent dit:</strong> {news['jip']}</div>
-        <div class="news-section"><strong>Markt & Economische Impact:</strong> {news['impact']}</div>
-        <div style="margin-top: 10px;">
-            <a href="{news['link']}" target="_blank" style="font-size: 13px; color: #2563eb; text-decoration: none; font-weight: bold;">🔗 Lees originele bron</a>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with tab1:
-    st.markdown("### Lokale Radar: Justitie, SPK, Aandelen & TCMB")
-    
-    neg_a1 = sum(1 for n in c_data['a1'] if n['sentiment'] == 'neg')
-    if neg_a1 >= 3:
-        st.error(f"🚨 **Lokale Markt Barometer:** Hoge stress. Er zijn {neg_a1} negatieve of justitiële berichten actief. Kans op volatiliteit in specifieke aandelen.")
-    elif neg_a1 == 0:
-        st.success("🟢 **Lokale Markt Barometer:** Rustige nieuwsflow, geen grote SPK of justitiële schandalen gedetecteerd.")
+        raw_items = [item for sublist in google_res + direct_res for item in sublist]
         
-    for news in c_data['a1']:
-        render_html_card(news)
-
-with tab2:
-    st.markdown("### Globale Radar: Fed, Oorlog, Goud & Zilver")
-    
-    neg_a2 = sum(1 for n in c_data['a2'] if n['sentiment'] == 'neg')
-    warn_a2 = sum(1 for n in c_data['a2'] if n['sentiment'] == 'warn')
-    
-    if neg_a2 >= 2 or warn_a2 >= 3:
-        st.warning(f"🔥 **Goud/Zilver Barometer:** Verhoogde geopolitieke of monetaire activiteit. Edelmetalen staan onder hoogspanning en kunnen grote bewegingen maken.")
-    else:
-        st.info("📊 **Goud/Zilver Barometer:** Edelmetalen reageren momenteel puur op reguliere rente- en dollardata.")
+        # Verrijken en Vertalen
+        for item in raw_items:
+            item["title_nl"] = translate_to_nl(item["title_orig"]) if item["lang"] == "tr" else item["title_orig"]
+            item["desc_nl"] = translate_to_nl(item["desc_orig"]) if item["lang"] == "tr" else item["desc_orig"]
+            
+            matched = [tk for tk in [t.split(" ")[0] for t in BIST_100_STOCKS] if tk in item["title_orig"].upper() or tk in item["title_nl"].upper()]
+            item["_matched_tickers"] = matched
+            
+            jip, impact, c_class, badge, sec_str, s_type = build_jip_en_janneke_analysis(item["title_orig"], item["title_nl"], item["desc_nl"], matched)
+            item.update({"jip": jip, "impact": impact, "card_class": c_class, "badge_html": badge, "sector_str": sec_str, "sentiment_type": s_type})
+            
+        unique_items = deduplicate_by_semantic_content(raw_items, max_mode=dedup_strictness.startswith("Maximaal"))
         
-    for news in c_data['a2']:
-        render_html_card(news)
+        all_tickers = set(tickers_clean[:12])
+        for it in unique_items: all_tickers.update(it["_matched_tickers"])
+        
+        st.session_state.master_enriched = unique_items
+        st.session_state.raw_count = len(raw_items)
+        st.session_state.stock_tech_map = get_bist_technical_snapshots(tuple(sorted(all_tickers)[:50]))
+        st.session_state.agenda = get_upcoming_30_day_agenda()
+
+if st.session_state.master_enriched is not None:
+    data = st.session_state.master_enriched
+    tech = st.session_state.stock_tech_map
+    
+    st.success(f"✅ Master Analyse voltooid! Van de {st.session_state.raw_count} berichten zijn er **{len(data)} unieke dossiers** gebouwd.")
+    
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🌐 Agent 1: Master Hub", "🕵️‍♂️ Agent 2: Koers-Matrix", "💡 Agent 3: Advies", "⚖️ Agent 4: Risk", "📅 Agent 5: Agenda"])
+    
+    with tab1:
+        st.markdown("### 🌐 Agent 1: Master News Hub")
+        
+        # 🌡️ LIVE MARKT BAROMETER 🌡️
+        neg_c = sum(1 for x in data if x["sentiment_type"] == "neg")
+        pos_c = sum(1 for x in data if x["sentiment_type"] == "pos")
+        
+        if neg_c > pos_c + 2:
+            st.error(f"🚨 **Markt Barometer (BIST 100):** Hoog risico. Er circuleren {neg_c} zware waarschuwingen of justitiële schandalen.")
+        elif pos_c > neg_c:
+            st.success(f"🟢 **Markt Barometer (BIST 100):** Positieve flow. Bedrijfs- en macro-nieuws is overwegend constructief.")
+        else:
+            st.info(f"⚖️ **Markt Barometer (BIST 100):** Neutraal beeld. Markten zoeken richting.")
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+            
+        for item in data:
+            chips = ""
+            for tk in item["_matched_tickers"]:
+                s = tech.get(tk)
+                if s and s.get("price"):
+                    chips += f"<span class='stock-chip'>📊 <strong>{tk}</strong>: ₺{s['price']:,.2f} ({s['change']:+.2f}%) | RSI: {s['rsi']} | S1: ₺{s['s1']} | {s['trend']}</span>"
+            
+            also = ""
+            if item.get("extra_source_links"):
+                links = " · ".join([f"<a href='{l['link']}' target='_blank'>{l['name']}</a>" for l in item["extra_source_links"][:3]])
+                also = f"<div class='card-subtitle'>🧠 <em>Ook gemeld door: {links} (automatisch samengevoegd)</em></div>"
+            
+            st.markdown(f"""
+            <div class="clean-card {item['card_class']}">
+                <div style="margin-bottom: 6px;">{item['badge_html']} <span style="font-size: 13px; color: #475569; font-weight: bold;">| 🕒 {item['datetime'].strftime('%d-%m %H:%M')} | Bron: {item['source']}</span></div>
+                <h4 class="card-title">{item['title_nl']}</h4>
+                <div class="card-subtitle">Originele kop: {item['title_orig']}</div>
+                {also}
+                <div style="font-size: 13px; color: #1e3a8a; font-weight: 600; margin-bottom: 4px;">🎯 Sectoren: {item['sector_str']}</div>
+                <div style="margin-bottom: 8px;">{chips}</div>
+                <hr>
+                <div class="card-text"><strong>🗣️ Wat betekent dit:</strong> {item['jip']}</div>
+                <div class="card-text"><strong>📊 Economische impact:</strong> {item['impact']}</div>
+                <div style="margin-top: 10px;"><a href="{item['link']}" target="_blank" style="font-weight: bold; color: #1d4ed8; text-decoration: none;">🔗 Lees originele artikel</a></div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+    with tab2:
+        st.markdown("### 🕵️‍♂️ Agent 2: Live Technische Koers-Matrix")
+        if tech:
+            df = pd.DataFrame([{"Ticker": k, "Koers": v.get("price"), "Mutatie %": v.get("change"), "RSI": v.get("rsi"), "Steun S1": v.get("s1"), "Weerstand R1": v.get("r1"), "Trend": v.get("trend")} for k, v in tech.items()])
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            
+    with tab5:
+        st.markdown("### 📅 Agent 5: Komende 30-Dagen Macro Agenda")
+        for ev in st.session_state.agenda:
+            st.markdown(f"""
+            <div class="clean-card news-card">
+                <h4 class="card-title">📅 {ev['date'].strftime('%d-%m-%Y')} - {ev['title']}</h4>
+                <hr>
+                <div class="card-text"><strong>🗣️ Wat gaat er gebeuren:</strong> {ev['jip']}</div>
+                <div class="card-text"><strong>📊 Impact:</strong> {ev['impact']}</div>
+                <a href="{ev['link']}" target="_blank" style="font-size: 13px; color: #2563eb; font-weight: bold; text-decoration: none;">🔗 Officiële kalender</a>
+            </div>
+            """, unsafe_allow_html=True)
