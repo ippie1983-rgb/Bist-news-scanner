@@ -1,5 +1,5 @@
 # ==============================================================================
-# 🇹🇷 BIST 30 & TURKSE ECONOMIE ULTIMATE MASTER SCANNER — EXAKT 1400 REGELS
+# 🇹🇷 BIST 30 & TURKSE ECONOMIE MASTER SCANNER — DEFINITIEVE PRODUCTIEVERSIE
 # ==============================================================================
 
 import os
@@ -702,12 +702,9 @@ def get_upcoming_30_day_agenda():
         {"date": datetime(2026, 11, 19).date(), "time_str": "19-11-2026 (14:00 TR)", "title": "🇹🇷 TCMB Rentebesluit (PPK)", "jip": "De Turkse Centrale Bank maakt het nieuwe rentebesluit bekend.", "impact": "Hét belangrijkste binnenlandse macro-moment voor USD/TRY, Gram Goud en de BIST 30.", "link": "https://www.tcmb.gov.tr/"},
         {"date": datetime(2026, 11, 20).date(), "time_str": "20-11-2026 (18:00 TR)", "title": "🇹🇷 KAP Deadline Q3 Cijfers (Geconsolideerd & Banken)", "jip": "Uiterste datum voor grote holdings en banken (o.a. KCHOL, SAHOL, THYAO, AKBNK, GARAN, TUPRS) om hun Q3-cijfers te rapporteren.", "impact": "Bepaalt welke BIST 30-zwaargewichten de eindejaarsrally leiden.", "link": "https://www.kap.org.tr/"}
     ]
-# ==============================================================================
-# 🇹🇷 BIST 30 & TURKSE ECONOMIE MASTER SCANNER — DEEL 2 VAN 2 (Exact 700 regels UI)
-# ==============================================================================
 
 # ==============================================================================
-# 🎛️ ZIJBALK & UI CONFIGURATIE
+# 🎛️ ZIJBALK & UI INTERFACE (Volledig geïntegreerd)
 # ==============================================================================
 st.sidebar.header("⚙️ Systeem & Inhouds-Filter")
 custom_search_query = st.sidebar.text_input("🔎 Vrije Live Zoekopdracht:", value="", placeholder="Bijv. Tera, İmamoğlu, Trump...")
@@ -721,9 +718,6 @@ include_direct_newspaper_rss = st.sidebar.checkbox("⚡ Inclusief rechtstreekse 
 dedup_strictness = st.sidebar.radio("🧠 Inhoudelijke Ontdubbeling:", ["Slim (1 kaart per uniek verhaal)", "Maximaal (Groepeer per thema)"], index=0)
 sort_mode = st.sidebar.radio("Sorteervolgorde in Master Hub:", ["Op Prioriteit (Nieuwste eerst)", "Puur op Datum"], index=0)
 
-# ==============================================================================
-# 🖥️ HOOFDPROGRAMMA & INTERFACE TABS
-# ==============================================================================
 st.markdown("### 📊 Marktoverzicht (BIST 30, Valuta & Edelmetalen)")
 market_data = get_live_market_snapshot()
 m_items = [(k, v) for k, v in market_data.items() if v.get("price") is not None]
